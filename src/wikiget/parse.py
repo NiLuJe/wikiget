@@ -93,7 +93,7 @@ def read_batch_file(batch_file: str) -> dict[int, str]:
     else:
         logger.info("Using file '%s' for batch download", batch_file)
 
-    with fileinput.input(batch_file) as fd:
+    with fileinput.input(batch_file, encoding="utf-8") as fd:
         # read the file into memory and process each line as we go
         for line_num, line in enumerate(fd, start=1):
             line_s = line.strip()

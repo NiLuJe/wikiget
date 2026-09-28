@@ -11,7 +11,7 @@ file name or the URL of its description page.
 
 ## Installation
 
-Requires Python 3.7+ and pip. Install the latest version with:
+Requires Python 3.10+ and pip. Install the latest version with:
 
 ```bash
 pip install wikiget
