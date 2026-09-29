@@ -45,7 +45,7 @@ from wikiget.version import __version__
 
 # set some global constants
 BLOCKSIZE = 65536
-CHUNKSIZE = 1024
+CHUNKSIZE = 4096
 DEFAULT_SITE = "commons.wikimedia.org"
 DEFAULT_PATH = "/w/"
 USER_AGENT = (
