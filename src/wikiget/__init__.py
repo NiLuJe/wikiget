@@ -23,7 +23,7 @@ it. Additionally, it can download multiple files at once by reading the targets 
 given text file.
 
 Further documentation can be found in the accompanying README.md file or at
-<https://github.com/clpo13/wikiget>.
+<https://github.com/NiLuJe/wikiget>.
 
 Basic usage::
 
@@ -35,7 +35,7 @@ Examples::
     wikiget File:Example.jpg
     wikiget --site en.wikipedia.org File:Example.jpg
     wikiget https://en.wikipedia.org/wiki/File:Example.jpg -o output.jpg
-    wikiget -a -j4 batch.txt
+    wikiget -a -j3 batch.txt
 
 """
 
@@ -49,7 +49,7 @@ CHUNKSIZE = 1024
 DEFAULT_SITE = "commons.wikimedia.org"
 DEFAULT_PATH = "/w/"
 USER_AGENT = (
-    f"wikiget/{__version__} (https://github.com/clpo13/wikiget) "
+    f"wikiget/{__version__} (https://github.com/NiLuJe/wikiget) "
     f"mwclient/{mwclient_version}"
 )
 STD_VERBOSE = 1
