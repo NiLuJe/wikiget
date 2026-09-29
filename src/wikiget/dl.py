@@ -158,10 +158,6 @@ class Downloader:
         with self.progress_bar() as progress:
             for line_num, line in batch_files(self.input):
                 errors += self.download_pipeline(line_num, line, progress)
-
-                if self.done_event.is_set():
-                    logger.error("Caught a SIGINT, aborting...")
-                    return errors
         return errors
 
 
@@ -185,17 +181,9 @@ class Downloader:
             for line_num, line in batch_files(self.input):
                 future = executor.submit(self.download_pipeline, line_num, line, progress)
                 futures.append(future)
-
-                if self.done_event.is_set():
-                    logger.error("Caught a SIGINT, aborting...")
-                    return 1
             # wait for downloads to finish
             for future in futures:
                 errors += future.result()
-
-                if self.done_event.is_set():
-                    logger.error("Caught a SIGINT, aborting...")
-                    return errors
         return errors
 
 
@@ -303,7 +291,6 @@ class Downloader:
                             adapter.error("Caught a SIGINT, aborting...")
                             dest.unlink()
                             progress.remove_task(task)
-                            errors += 1
                             return errors
                     progress.console.log(f"Downloaded [bold magenta]{filename}[/]")
             except OSError as e:
@@ -356,7 +343,7 @@ class Downloader:
         """
 
         if self.done_event.is_set():
-            return 1
+            return 0
 
         file = self.query_filename(line_num, line)
 
