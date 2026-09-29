@@ -132,7 +132,7 @@ def process_download(args: Namespace) -> int:
             exit_code = 1
         else:
             with progress_bar() as progress:
-                task = progress.add_task("download", filename=str(file.dest), start=False)
+                task = progress.add_task("download", filename=str(file.dest), total=None, start=False)
                 errors = download(file, progress, task, args)
                 if errors:
                     exit_code = 1  # completed with errors
@@ -204,7 +204,7 @@ def batch_download(args: Namespace) -> int:
                 )
                 errors += 1
                 continue
-            task = progress.add_task("download", filename=str(file.dest), start=False)
+            task = progress.add_task("download", filename=str(file.dest), total=None, start=False)
             future = executor.submit(download, file, progress, task, args)
             futures.append(future)
         # wait for downloads to finish
@@ -274,6 +274,7 @@ def download(f: File, progress: Progress, task: TaskID, args: Namespace) -> int:
                 for chunk in r.iter_content(None):
                     fd.write(chunk)
                     progress.update(task, advance=len(chunk))
+                progress.console.log(f"Downloaded [magenta]{filename}[/magenta]")
         except OSError as e:
             adapter.error(f"File could not be written: {e}")
             dest.unlink(missing_ok=True)
