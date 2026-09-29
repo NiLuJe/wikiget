@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import fileinput
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Iterable
 from urllib.parse import unquote, urlparse
 
 import wikiget
@@ -75,18 +75,11 @@ def get_dest(dl: str, args: Namespace) -> File:
     return File(filename, dest, site_name)
 
 
-def read_batch_file(batch_file: str) -> dict[int, str]:
+def batch_files(batch_file: str) -> Iterable[tuple[int, str]]:
     """Parse a batch file or stdin for valid input.
 
-    The contents are returned as a dictionary with line numbers for keys and line
-    contents for values. Any blank lines or lines starting with '#' are skipped.
-
-    :param batch_file: name of the file to parse or "-" for stdin
-    :type batch_file: str
-    :return: a dictionary representation of the input contents
-    :rtype: dict[int, str]
+    Returns a generator that yields line_num, filename tuples.
     """
-    dl_dict = {}
 
     if batch_file == "-":
         logger.info("Using stdin for batch download")
@@ -99,6 +92,18 @@ def read_batch_file(batch_file: str) -> dict[int, str]:
             line_s = line.strip()
             # ignore blank lines and lines starting with "#" (for comments)
             if line_s and not line_s.startswith("#"):
-                dl_dict[line_num] = line_s
+                yield line_num, line_s
 
-    return dl_dict
+
+def read_batch_file(batch_file: str) -> dict[int, str]:
+    """Parse a batch file or stdin for valid input.
+
+    The contents are returned as a dictionary with line numbers for keys and line
+    contents for values. Any blank lines or lines starting with '#' are skipped.
+
+    :param batch_file: name of the file to parse or "-" for stdin
+    :type batch_file: str
+    :return: a dictionary representation of the input contents
+    :rtype: dict[int, str]
+    """
+    return dict(batch_files(batch_file))

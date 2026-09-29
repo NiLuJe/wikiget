@@ -39,7 +39,7 @@ import wikiget
 from wikiget.client import connect_to_site, query_api
 from wikiget.exceptions import ParseError
 from wikiget.logging import FileLogAdapter
-from wikiget.parse import get_dest, read_batch_file
+from wikiget.parse import get_dest, read_batch_file, batch_files
 from wikiget.validations import verify_hash
 
 if TYPE_CHECKING:
@@ -70,6 +70,7 @@ def prep_download(dl: str, args: Namespace) -> File:
 
     return file
 
+
 def progress_bar() -> Progress:
     """Return a rich.progress Progress instance laid out for our downloads"""
 
@@ -85,6 +86,7 @@ def progress_bar() -> Progress:
         "•",
         TimeRemainingColumn(elapsed_when_finished=True),
     )
+
 
 def process_download(args: Namespace) -> int:
     """Process the download target given in the CLI args as a single file or batch file.
@@ -106,7 +108,7 @@ def process_download(args: Namespace) -> int:
 
     if args.batch:
         # batch download mode
-        errors = batch_download(args)
+        errors = threaded_download(args) if args.threads > 1 else batched_download(args)
         if errors:
             # return non-zero exit code if any problems were encountered, even if some
             # downloads completed successfully
@@ -139,7 +141,65 @@ def process_download(args: Namespace) -> int:
     return exit_code
 
 
-def batch_download(args: Namespace) -> int:
+def batched_download(args: Namespace) -> int:
+    """Download files specified in a batch file.
+
+    The batch file is parsed as we go, and files are checked
+    for validity before being downloaded one by one.
+
+    :param args: command-line arguments and their values
+    :type args: argparse.Namespace
+    :return: number of errors encountered during processing
+    :rtype: int
+    """
+    errors = 0
+
+    with progress_bar() as progress:
+        sites: list[Site] = []
+        for line_num, line in batch_files(args.FILE):
+            # keep track of batch file line numbers for debugging/logging purposes
+            logger.info("Processing '%s' at line %i", line, line_num)
+            try:
+                file = prep_download(line, args)
+                site = next(
+                    filter(
+                        lambda site: site.host == file.site,
+                        sites,
+                    ),
+                    None,
+                )
+                # if there's already a Site object matching the desired host, reuse it
+                # to reduce the number of API calls made per file
+                if site:
+                    logger.debug("Reusing the existing connection to %s", site.host)
+                else:
+                    logger.debug("Making a new connection to %s", file.site)
+                    site = connect_to_site(file.site, args)
+                    # cache the new Site for reuse
+                    sites.append(site)
+                file.image = query_api(file.name, site)
+            except ParseError as e:
+                logger.warning("%s (line %i)", str(e), line_num)
+                errors += 1
+                continue
+            except FileExistsError as e:
+                logger.warning(e)
+                errors += 1
+                continue
+            except (ConnectionError, HTTPError, InvalidResponse, LoginError, APIError):
+                logger.warning(
+                    "Unable to download '%s' (line %i) due to an error",
+                    line,
+                    line_num,
+                )
+                errors += 1
+                continue
+            task = progress.add_task("download", filename=str(file.dest), total=None, start=False)
+            errors += download(file, progress, task, args)
+    return errors
+
+
+def threaded_download(args: Namespace) -> int:
     """Download files specified in a batch file.
 
     The batch file is parsed into a dictionary, and the dictionary's items are checked
@@ -170,6 +230,9 @@ def batch_download(args: Namespace) -> int:
             # keep track of batch file line numbers for debugging/logging purposes
             logger.info("Processing '%s' at line %i", line, line_num)
             try:
+                # NOTE: Doing this *here*, instead of inside the executor callback,
+                #       means that we'll just spam a bunch of queries upfront,
+                #       which is.... not great.
                 file = prep_download(line, args)
                 site = next(
                     filter(
