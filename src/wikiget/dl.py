@@ -19,8 +19,12 @@
 
 from __future__ import annotations
 
-import logging
 from concurrent.futures import ThreadPoolExecutor
+from functools import partial
+import logging
+import signal
+from threading import Event
+from types import FrameType
 from typing import TYPE_CHECKING
 
 from mwclient import APIError, InvalidResponse, LoginError, Site
@@ -35,7 +39,6 @@ from rich.progress import (
     TransferSpeedColumn,
 )
 
-import wikiget
 from wikiget.client import connect_to_site, query_api
 from wikiget.exceptions import ParseError
 from wikiget.logging import FileLogAdapter
@@ -62,6 +65,12 @@ class Downloader:
         self.output = self.args.output
         self.sites: dict[str, Site] = {}
 
+        # And install our SIGINT handler
+        self.done_event = Event()
+        signal.signal(signal.SIGINT, partial(self.handle_sigint, self))
+
+    def handle_sigint(self, signum: int, frame: FrameType):
+        self.done_event.set()
 
     def prep_download(self, dl: str) -> File:
         """Prepare to download a file by parsing the filename or URL and CLI arguments.
@@ -277,6 +286,13 @@ class Downloader:
                     for chunk in r.iter_content(None):
                         fd.write(chunk)
                         progress.update(task, advance=len(chunk))
+
+                        if self.done_event.is_set():
+                            adapter.error("Caught a SIGINT, aborting...")
+                            dest.unlink()
+                            progress.remove_task(task)
+                            errors += 1
+                            return errors
                     progress.console.log(f"Downloaded [bold magenta]{filename}[/]")
             except OSError as e:
                 adapter.error(f"File could not be written: {e}")
