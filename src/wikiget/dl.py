@@ -274,7 +274,7 @@ def download(f: File, progress: Progress, task: TaskID, args: Namespace) -> int:
                 for chunk in r.iter_content(None):
                     fd.write(chunk)
                     progress.update(task, advance=len(chunk))
-                progress.console.log(f"Downloaded [magenta]{filename}[/magenta]")
+                progress.console.print(f"Downloaded [magenta]{filename}[/magenta]")
         except OSError as e:
             adapter.error(f"File could not be written: {e}")
             dest.unlink(missing_ok=True)
