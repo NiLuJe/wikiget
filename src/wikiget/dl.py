@@ -247,13 +247,27 @@ def download(f: File, args: Namespace) -> int:
                 # NOTE: Strong urge to also fork mwclient and just import niquests as requests...
                 #       That would require also wrapping that iter_content in a context manager.
                 # download the file using the existing Site session
-                res = site.connection.get(file_url, stream=True)
-                # FIXME: Handle errors
-                for chunk in res.iter_content(None):
+                r = site.connection.get(file_url, stream=True)
+
+                # Minimal error handling
+                try:
+                    # NOTE: On r.status_code == requests.codes.ok (i.e., 200),
+                    #       raise_for_status will return:
+                    #       None with requests
+                    #       r with niquests
+                    r.raise_for_status()
+                except HTTPError as e:
+                    adapter.error(f"File could not be downloaded: {e}")
+                    dest.unlink()
+                    errors += 1
+                    return errors
+
+                for chunk in r.iter_content(None):
                     fd.write(chunk)
                     progress.update(task, advance=len(chunk))
         except OSError as e:
             adapter.error(f"File could not be written: {e}")
+            dest.unlink(missing_ok=True)
             errors += 1
             return errors
 
@@ -262,7 +276,7 @@ def download(f: File, args: Namespace) -> int:
             dl_sha1 = verify_hash(dest)
         except OSError as e:
             adapter.error(f"File downloaded but could not be verified: {e}")
-            dest.unlink(missing_ok=True)
+            dest.unlink()
             errors += 1
             return errors
 
