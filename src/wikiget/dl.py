@@ -274,10 +274,11 @@ def download(f: File, progress: Progress, task: TaskID, args: Namespace) -> int:
                 for chunk in r.iter_content(None):
                     fd.write(chunk)
                     progress.update(task, advance=len(chunk))
-                progress.console.print(f"Downloaded [magenta]{filename}[/magenta]")
+                progress.console.log(f"Downloaded [bold magenta]{filename}[/]")
         except OSError as e:
             adapter.error(f"File could not be written: {e}")
             dest.unlink(missing_ok=True)
+            progress.remove_task(task)
             errors += 1
             return errors
 
@@ -287,6 +288,7 @@ def download(f: File, progress: Progress, task: TaskID, args: Namespace) -> int:
         except OSError as e:
             adapter.error(f"File downloaded but could not be verified: {e}")
             dest.unlink()
+            progress.remove_task(task)
             errors += 1
             return errors
 
@@ -303,6 +305,10 @@ def download(f: File, progress: Progress, task: TaskID, args: Namespace) -> int:
             adapter.error("Hash mismatch! Downloaded file may be corrupt.")
             dest.unlink()
             errors += 1
+
+        # NOTE: A single Progress instance will only ever show as much tasks as the terminal height allows...
+        #       Drop completed tasks to free up space.
+        progress.remove_task(task)
 
     else:
         # no file information returned
