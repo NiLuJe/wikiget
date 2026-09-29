@@ -70,6 +70,21 @@ def prep_download(dl: str, args: Namespace) -> File:
 
     return file
 
+def progress_bar() -> Progress:
+    """Return a rich.progress Progress instance laid out for our downloads"""
+
+    return Progress(
+        TextColumn("[bold blue]{task.fields[filename]}", justify="right"),
+        BarColumn(bar_width=None),
+        "[progress.percentage]{task.percentage:>3.1f}%",
+        "•",
+        DownloadColumn(binary_units=True),
+        "•",
+        # Unlikely to have time to update, given our small file sizes
+        TransferSpeedColumn(),
+        "•",
+        TimeRemainingColumn(elapsed_when_finished=True),
+    )
 
 def process_download(args: Namespace) -> int:
     """Process the download target given in the CLI args as a single file or batch file.
@@ -116,9 +131,11 @@ def process_download(args: Namespace) -> int:
         except (ConnectionError, HTTPError, InvalidResponse, LoginError, APIError):
             exit_code = 1
         else:
-            errors = download(file, args)
-            if errors:
-                exit_code = 1  # completed with errors
+            with progress_bar() as progress:
+                task = progress.add_task("download", filename=str(file.dest), start=False)
+                errors = download(file, progress, task, args)
+                if errors:
+                    exit_code = 1  # completed with errors
     return exit_code
 
 
@@ -143,7 +160,10 @@ def batch_download(args: Namespace) -> int:
         logger.error("File could not be read: %s", str(e))
         return 1
 
-    with ThreadPoolExecutor(max_workers=args.threads) as executor:
+    with (
+        progress_bar() as progress,
+        ThreadPoolExecutor(max_workers=args.threads) as executor,
+    ):
         futures = []
         sites: list[Site] = []
         for line_num, line in dl_dict.items():
@@ -184,7 +204,8 @@ def batch_download(args: Namespace) -> int:
                 )
                 errors += 1
                 continue
-            future = executor.submit(download, file, args)
+            task = progress.add_task("download", filename=str(file.dest), start=False)
+            future = executor.submit(download, file, progress, task, args)
             futures.append(future)
         # wait for downloads to finish
         for future in futures:
@@ -192,7 +213,7 @@ def batch_download(args: Namespace) -> int:
     return errors
 
 
-def download(f: File, args: Namespace) -> int:
+def download(f: File, progress: Progress, task: TaskID, args: Namespace) -> int:
     """Fetch file information and contents if the file exists and save it to disk.
 
     :param f: a File object representing the file to be downloaded
@@ -229,21 +250,9 @@ def download(f: File, args: Namespace) -> int:
             return errors
 
         try:
-            with (
-                Progress(
-                    TextColumn("[bold blue]{task.fields[filename]}", justify="right"),
-                    BarColumn(bar_width=None),
-                    "[progress.percentage]{task.percentage:>3.1f}%",
-                    "•",
-                    DownloadColumn(binary_units=True),
-                    "•",
-                    TransferSpeedColumn(),  # Unlikely to have time to update, given our small file sizes
-                    "•",
-                    TimeRemainingColumn(elapsed_when_finished=True),
-                ) as progress,
-                dest.open("wb") as fd,
-            ):
-                task = progress.add_task("download", filename=str(dest), total=file_size)
+            progress.update(task, total=file_size)
+            with dest.open("wb") as fd:
+                progress.start_task(task)
                 # NOTE: Strong urge to also fork mwclient and just import niquests as requests...
                 #       That would require also wrapping that iter_content in a context manager.
                 # download the file using the existing Site session
