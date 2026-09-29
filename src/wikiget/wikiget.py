@@ -24,7 +24,7 @@ import logging
 import sys
 
 import wikiget
-from wikiget.dl import process_download
+from wikiget.dl import Downloader
 from wikiget.logging import configure_logging
 
 
@@ -142,7 +142,8 @@ def cli() -> int:
     logger.debug("User agent: %s", wikiget.USER_AGENT)
 
     try:
-        exit_code = process_download(args)
+        dl = Downloader(args)
+        exit_code = dl.process_download()
     except KeyboardInterrupt:
         logger.critical("Interrupted by user")
         exit_code = 130
