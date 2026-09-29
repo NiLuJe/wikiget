@@ -25,7 +25,15 @@ from typing import TYPE_CHECKING
 
 from mwclient import APIError, InvalidResponse, LoginError, Site
 from requests import ConnectionError, HTTPError
-from tqdm import tqdm
+from rich.progress import (
+    BarColumn,
+    DownloadColumn,
+    Progress,
+    TaskID,
+    TextColumn,
+    TimeRemainingColumn,
+    TransferSpeedColumn,
+)
 
 import wikiget
 from wikiget.client import connect_to_site, query_api
@@ -221,19 +229,29 @@ def download(f: File, args: Namespace) -> int:
             return errors
 
         try:
-            with tqdm(
-                desc=str(dest),
-                leave=args.verbose >= wikiget.STD_VERBOSE,
-                total=file_size,
-                unit="B",
-                unit_scale=True,
-                unit_divisor=wikiget.CHUNKSIZE,
-            ) as progress_bar, dest.open("wb") as fd:
+            with (
+                Progress(
+                    TextColumn("[bold blue]{task.fields[filename]}", justify="right"),
+                    BarColumn(bar_width=None),
+                    "[progress.percentage]{task.percentage:>3.1f}%",
+                    "•",
+                    DownloadColumn(binary_units=True),
+                    "•",
+                    TransferSpeedColumn(),
+                    "•",
+                    TimeRemainingColumn(elapsed_when_finished=True),
+                ) as progress,
+                dest.open("wb") as fd,
+            ):
+                task = progress.add_task("download", filename=str(dest), total=file_size)
+                # FIXME: And wrap that in a content manager or a try/finally (unless that's niquests only?)
+                # ...    Urge to just also fork mwclient and just import niquests as requests and call it a day?
                 # download the file using the existing Site session
                 res = site.connection.get(file_url, stream=True)
-                for chunk in res.iter_content(wikiget.CHUNKSIZE):
+                # FIXME: Handle errors, and retries (ideally w/ a custom requests Session that does it for us?)
+                for chunk in res.iter_content(None):
                     fd.write(chunk)
-                    progress_bar.update(len(chunk))
+                    progress.update(task, advance=len(chunk))
         except OSError as e:
             adapter.error(f"File could not be written: {e}")
             errors += 1
