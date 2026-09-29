@@ -24,6 +24,8 @@ from typing import TYPE_CHECKING
 
 from mwclient import APIError, InvalidResponse, LoginError, Site
 from requests import ConnectionError, HTTPError
+from requests.adapters import HTTPAdapter
+from urllib3.util import Retry
 
 import wikiget
 
@@ -72,6 +74,20 @@ def connect_to_site(site_name: str, args: Namespace) -> Site:
         # LoginError: missing or invalid credentials
         logger.error(e)
         raise
+
+    # Setup auto-retry, as we're very likely to hit 429 on the way...
+    # c.f., https://www.mediawiki.org/wiki/Wikimedia_APIs/Rate_limits
+    retries = Retry(
+        total=10,
+        backoff_factor=5,
+        backoff_max=30,
+        backoff_jitter=2,
+        status_forcelist=[429, 502, 503, 504],
+        allowed_methods={"GET", "HEAD", "OPTIONS", "TRACE"},
+        respect_retry_after_header=True,
+    )
+    site.connection.mount("http://", HTTPAdapter(max_retries=retries))
+    site.connection.mount("https://", HTTPAdapter(max_retries=retries))
 
     return site
 

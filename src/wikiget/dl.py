@@ -244,11 +244,11 @@ def download(f: File, args: Namespace) -> int:
                 dest.open("wb") as fd,
             ):
                 task = progress.add_task("download", filename=str(dest), total=file_size)
-                # FIXME: And wrap that in a content manager or a try/finally (unless that's niquests only?)
-                # ...    Urge to just also fork mwclient and just import niquests as requests and call it a day?
+                # NOTE: Strong urge to also fork mwclient and just import niquests as requests...
+                #       That would require also wrapping that iter_content in a context manager.
                 # download the file using the existing Site session
                 res = site.connection.get(file_url, stream=True)
-                # FIXME: Handle errors, and retries (ideally w/ a custom requests Session that does it for us?)
+                # FIXME: Handle errors
                 for chunk in res.iter_content(None):
                     fd.write(chunk)
                     progress.update(task, advance=len(chunk))
