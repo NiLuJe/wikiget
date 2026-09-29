@@ -104,7 +104,6 @@ def process_download(args: Namespace) -> int:
     :return: program exit code (1 if there were any problems or 0 otherwise)
     :rtype: int
     """
-    exit_code = 0
 
     if args.batch:
         # batch download mode
@@ -117,28 +116,12 @@ def process_download(args: Namespace) -> int:
                 errors,
                 "s"[: errors ^ 1],
             )
-            exit_code = 1  # completed with errors
     else:
         # single download mode
-        try:
-            file = prep_download(args.FILE, args)
-            site = connect_to_site(file.site, args)
-            file.image = query_api(file.name, site)
-        except ParseError as e:
-            logger.error(e)
-            exit_code = 1
-        except FileExistsError as e:
-            logger.warning(e)
-            exit_code = 1
-        except (ConnectionError, HTTPError, InvalidResponse, LoginError, APIError):
-            exit_code = 1
-        else:
-            with progress_bar() as progress:
-                task = progress.add_task("download", filename=str(file.dest), total=None, start=False)
-                errors = download(file, progress, task, args)
-                if errors:
-                    exit_code = 1  # completed with errors
-    return exit_code
+        with progress_bar() as progress:
+            errors = download_pipeline(1, args.FILE, progress, args, {})
+
+    return 1 if errors else 0
 
 
 def batched_download(args: Namespace) -> int:
@@ -155,47 +138,9 @@ def batched_download(args: Namespace) -> int:
     errors = 0
 
     with progress_bar() as progress:
-        sites: list[Site] = []
+        sites: dict[str, Site] = {}
         for line_num, line in batch_files(args.FILE):
-            # keep track of batch file line numbers for debugging/logging purposes
-            logger.info("Processing '%s' at line %i", line, line_num)
-            try:
-                file = prep_download(line, args)
-                site = next(
-                    filter(
-                        lambda site: site.host == file.site,
-                        sites,
-                    ),
-                    None,
-                )
-                # if there's already a Site object matching the desired host, reuse it
-                # to reduce the number of API calls made per file
-                if site:
-                    logger.debug("Reusing the existing connection to %s", site.host)
-                else:
-                    logger.debug("Making a new connection to %s", file.site)
-                    site = connect_to_site(file.site, args)
-                    # cache the new Site for reuse
-                    sites.append(site)
-                file.image = query_api(file.name, site)
-            except ParseError as e:
-                logger.warning("%s (line %i)", str(e), line_num)
-                errors += 1
-                continue
-            except FileExistsError as e:
-                logger.warning(e)
-                errors += 1
-                continue
-            except (ConnectionError, HTTPError, InvalidResponse, LoginError, APIError):
-                logger.warning(
-                    "Unable to download '%s' (line %i) due to an error",
-                    line,
-                    line_num,
-                )
-                errors += 1
-                continue
-            task = progress.add_task("download", filename=str(file.dest), total=None, start=False)
-            errors += download(file, progress, task, args)
+            errors += download_pipeline(line_num, line, progress, args, sites)
     return errors
 
 
@@ -225,55 +170,49 @@ def threaded_download(args: Namespace) -> int:
         ThreadPoolExecutor(max_workers=args.threads) as executor,
     ):
         futures = []
-        sites: list[Site] = []
+        sites: dict[str, Site] = {}
         for line_num, line in dl_dict.items():
-            # keep track of batch file line numbers for debugging/logging purposes
-            logger.info("Processing '%s' at line %i", line, line_num)
-            try:
-                # NOTE: Doing this *here*, instead of inside the executor callback,
-                #       means that we'll just spam a bunch of queries upfront,
-                #       which is.... not great.
-                file = prep_download(line, args)
-                site = next(
-                    filter(
-                        lambda site: site.host == file.site,
-                        sites,
-                    ),
-                    None,
-                )
-                # if there's already a Site object matching the desired host, reuse it
-                # to reduce the number of API calls made per file
-                if site:
-                    logger.debug("Reusing the existing connection to %s", site.host)
-                else:
-                    logger.debug("Making a new connection to %s", file.site)
-                    site = connect_to_site(file.site, args)
-                    # cache the new Site for reuse
-                    sites.append(site)
-                file.image = query_api(file.name, site)
-            except ParseError as e:
-                logger.warning("%s (line %i)", str(e), line_num)
-                errors += 1
-                continue
-            except FileExistsError as e:
-                logger.warning(e)
-                errors += 1
-                continue
-            except (ConnectionError, HTTPError, InvalidResponse, LoginError, APIError):
-                logger.warning(
-                    "Unable to download '%s' (line %i) due to an error",
-                    line,
-                    line_num,
-                )
-                errors += 1
-                continue
-            task = progress.add_task("download", filename=str(file.dest), total=None, start=False)
-            future = executor.submit(download, file, progress, task, args)
+            future = executor.submit(download_pipeline, line_num, line, progress, args, sites)
             futures.append(future)
         # wait for downloads to finish
         for future in futures:
             errors += future.result()
     return errors
+
+
+def query_filename(line_num: int, line: str, args: Namespace, sites: dict[str, Site]) -> File | None:
+    """Prepare a download and query Commons for the canonical download URL"""
+
+    logger.info("Processing '%s' at line %i", line, line_num)
+    try:
+        file = prep_download(line, args)
+        site = sites.get(file.site, None)
+
+        # if there's already a Site object matching the desired host, reuse it
+        # to reduce the number of API calls made per file
+        if site:
+            logger.debug("Reusing the existing connection to %s", site.host)
+        else:
+            logger.debug("Making a new connection to %s", file.site)
+            site = connect_to_site(file.site, args)
+            # cache the new Site for reuse
+            sites[site.host] = site
+        file.image = query_api(file.name, site)
+    except ParseError as e:
+        logger.warning("%s (line %i)", str(e), line_num)
+        return None
+    except FileExistsError as e:
+        logger.warning(e)
+        return None
+    except (ConnectionError, HTTPError, InvalidResponse, LoginError, APIError):
+        logger.warning(
+            "Unable to download '%s' (line %i) due to an API query error",
+            line,
+            line_num,
+        )
+        return None
+
+    return file
 
 
 def download(f: File, progress: Progress, task: TaskID, args: Namespace) -> int:
@@ -379,3 +318,14 @@ def download(f: File, progress: Progress, task: TaskID, args: Namespace) -> int:
         errors += 1
 
     return errors
+
+
+# FIXME: This whole thing should really be OO, because these signatures are starting to look ridiculous...
+def download_pipeline(line_num: int, line: str, progress: Progress, args: Namespace, sites: dict[str, Site]) -> int:
+    file = query_filename(line_num, line, args, sites)
+
+    if not file:
+        return 1
+
+    task = progress.add_task("download", filename=str(file.dest), total=None, start=False)
+    return download(file, progress, task, args)
