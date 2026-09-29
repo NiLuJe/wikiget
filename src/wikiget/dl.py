@@ -39,7 +39,7 @@ import wikiget
 from wikiget.client import connect_to_site, query_api
 from wikiget.exceptions import ParseError
 from wikiget.logging import FileLogAdapter
-from wikiget.parse import get_dest, read_batch_file, batch_files
+from wikiget.parse import get_dest, batch_files
 from wikiget.validations import verify_hash
 
 if TYPE_CHECKING:
@@ -158,20 +158,13 @@ def threaded_download(args: Namespace) -> int:
     """
     errors = 0
 
-    # parse batch file
-    try:
-        dl_dict = read_batch_file(args.FILE)
-    except OSError as e:
-        logger.error("File could not be read: %s", str(e))
-        return 1
-
     with (
         progress_bar() as progress,
         ThreadPoolExecutor(max_workers=args.threads) as executor,
     ):
         futures = []
         sites: dict[str, Site] = {}
-        for line_num, line in dl_dict.items():
+        for line_num, line in batch_files(args.FILE):
             future = executor.submit(download_pipeline, line_num, line, progress, args, sites)
             futures.append(future)
         # wait for downloads to finish

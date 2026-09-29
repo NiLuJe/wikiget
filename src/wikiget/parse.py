@@ -77,8 +77,12 @@ def get_dest(dl: str, args: Namespace) -> File:
 
 def batch_files(batch_file: str) -> Iterable[tuple[int, str]]:
     """Parse a batch file or stdin for valid input.
+    Any blank lines or lines starting with '#' are skipped.
 
-    Returns a generator that yields line_num, filename tuples.
+    :param batch_file: name of the file to parse or "-" for stdin
+    :type batch_file: str
+    :return: a a generator that yields line_num, filename tuples
+    :rtype: Iterable[tuple[int, str]]
     """
 
     if batch_file == "-":
