@@ -244,6 +244,7 @@ def download(f: File, args: Namespace) -> int:
             dl_sha1 = verify_hash(dest)
         except OSError as e:
             adapter.error(f"File downloaded but could not be verified: {e}")
+            dest.unlink(missing_ok=True)
             errors += 1
             return errors
 
@@ -258,6 +259,7 @@ def download(f: File, args: Namespace) -> int:
             adapter.info(success_log)
         else:
             adapter.error("Hash mismatch! Downloaded file may be corrupt.")
+            dest.unlink()
             errors += 1
 
     else:
