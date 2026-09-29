@@ -237,7 +237,7 @@ def download(f: File, args: Namespace) -> int:
                     "•",
                     DownloadColumn(binary_units=True),
                     "•",
-                    TransferSpeedColumn(),
+                    TransferSpeedColumn(),  # Unlikely to have time to update, given our small file sizes
                     "•",
                     TimeRemainingColumn(elapsed_when_finished=True),
                 ) as progress,
