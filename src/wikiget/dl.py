@@ -185,6 +185,10 @@ class Downloader:
             for line_num, line in batch_files(self.input):
                 future = executor.submit(self.download_pipeline, line_num, line, progress)
                 futures.append(future)
+
+                if self.done_event.is_set():
+                    logger.error("Caught a SIGINT, aborting...")
+                    return 1
             # wait for downloads to finish
             for future in futures:
                 errors += future.result()
@@ -350,6 +354,9 @@ class Downloader:
 
            Returns the number of errors encountered.
         """
+
+        if self.done_event.is_set():
+            return 1
 
         file = self.query_filename(line_num, line)
 

@@ -141,10 +141,5 @@ def cli() -> int:
     logger.info("Starting download session using wikiget %s", wikiget.__version__)
     logger.debug("User agent: %s", wikiget.USER_AGENT)
 
-    try:
-        dl = Downloader(args)
-        exit_code = dl.process_download()
-    except KeyboardInterrupt:
-        logger.critical("Interrupted by user")
-        exit_code = 130
-    return exit_code
+    dl = Downloader(args)
+    return dl.process_download()
