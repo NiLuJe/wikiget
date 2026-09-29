@@ -64,7 +64,7 @@ def prep_download(dl: str, args: Namespace) -> File:
     file = get_dest(dl, args)
 
     # check if the destination file already exists; don't overwrite unless the user says
-    if file.dest.is_file() and not args.force:
+    if file.dest.is_file() and file.dest.stat().st_size != 0 and not args.force:
         msg = f"[{file.dest}] File already exists; skipping download (use -f to force)"
         raise FileExistsError(msg)
 
