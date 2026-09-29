@@ -195,7 +195,7 @@ class Downloader:
                 logger.debug("Reusing the existing connection to %s", site.host)
             else:
                 logger.debug("Making a new connection to %s", file.site)
-                site = connect_to_site(file.site, args)
+                site = connect_to_site(file.site, self.args)
                 # cache the new Site for reuse
                 self.sites[site.host] = site
             file.image = query_api(file.name, site)
