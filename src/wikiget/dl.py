@@ -342,6 +342,7 @@ class Downloader:
            Returns the number of errors encountered.
         """
 
+        # Abort early w/o inflating the error count if we caught a SIGINT
         if self.done_event.is_set():
             return 0
 
