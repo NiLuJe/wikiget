@@ -67,7 +67,7 @@ class Downloader:
 
         # And install our SIGINT handler
         self.done_event = Event()
-        signal.signal(signal.SIGINT, partial(self.handle_sigint, self))
+        signal.signal(signal.SIGINT, partial(self.handle_sigint))
 
     def handle_sigint(self, signum: int, frame: FrameType):
         self.done_event.set()
@@ -158,6 +158,10 @@ class Downloader:
         with self.progress_bar() as progress:
             for line_num, line in batch_files(self.input):
                 errors += self.download_pipeline(line_num, line, progress)
+
+                if self.done_event.is_set():
+                    logger.error("Caught a SIGINT, aborting...")
+                    return errors
         return errors
 
 
@@ -184,6 +188,10 @@ class Downloader:
             # wait for downloads to finish
             for future in futures:
                 errors += future.result()
+
+                if self.done_event.is_set():
+                    logger.error("Caught a SIGINT, aborting...")
+                    return errors
         return errors
 
 
