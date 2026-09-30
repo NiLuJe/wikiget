@@ -23,8 +23,9 @@ import fileinput
 import logging
 import sys
 from typing import TYPE_CHECKING, Iterable
-
 from urllib.parse import unquote, urlparse
+
+from more_itertools import ilen
 
 import wikiget
 from wikiget.exceptions import ParseError
@@ -78,18 +79,21 @@ def get_dest(dl: str, args: Namespace) -> File:
 
 
 def batch_size(batch_file: str) -> int:
-    """Returns the amount of viable lines in the input"""
+    """Returns the amount of lines in the input.
+    NOTE: This does *NOT* do any kind of validation,
+          so this may return a count slightly higher than
+          the actual amount of *viable* lines
+          (e.g., it will include comments).
+
+    :param batch_file: name of the file to parse or "-" for stdin
+    :type batch_file: str
+    :return: a line count
+    :rtype: int
+    """
 
     # NOTE: Because we consume batch_files as a generator,
-    #       we don't really have a better way to.
-    # NOTE: A fun and faster implementation can be found in more_itertools.ilen,
-    #       but without input validaton ;).
-    size = 0
-    with fileinput.input(batch_file, encoding="utf-8") as fd:
-        for line in fd:
-            line_s = line.strip()
-            if line_s and not line_s.startswith("#"):
-                size += 1
+    #       we don't really have a better way to do this than just consuming the iterator :/.
+    size = ilen(fileinput.input(batch_file, encoding="utf-8"))
 
     # Rewind stdin for later batch_files calls
     if batch_file == "-":
@@ -103,7 +107,7 @@ def batch_files(batch_file: str) -> Iterable[tuple[int, str]]:
 
     :param batch_file: name of the file to parse or "-" for stdin
     :type batch_file: str
-    :return: a a generator that yields line_num, filename tuples
+    :return: a generator that yields line_num, filename tuples
     :rtype: Iterable[tuple[int, str]]
     """
 

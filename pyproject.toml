@@ -33,6 +33,7 @@ classifiers = [
   "Programming Language :: Python :: 3.14",
 ]
 dependencies = [
+  "more-itertools",
   "mwclient>=0.10.0",
   "requests",
   "rich",
