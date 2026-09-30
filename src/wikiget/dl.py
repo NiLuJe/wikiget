@@ -72,7 +72,7 @@ class Downloader:
         self.done_event = Event()
         signal.signal(signal.SIGINT, partial(self.handle_sigint))
 
-    def handle_sigint(self, signum: int, frame: FrameType):
+    def handle_sigint(self, _signum: int, _frame: FrameType):
         self.done_event.set()
         self.console.log("Caught a [bold red]SIGINT[/], tearing down pending tasks...")
 
