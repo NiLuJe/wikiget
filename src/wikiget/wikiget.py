@@ -139,7 +139,7 @@ def cli() -> int:
 
     # Sanity check args.FILE
     if args.FILE != "-" and not (os.path.isfile(args.FILE) and os.access(args.FILE, os.R_OK)):
-        logger.critical("Cannot access input file `%s`!")
+        logger.critical("Cannot access input file `%s`!", args.FILE)
         return 1
 
     # log events are appended to the file if it already exists, so note the start of a
