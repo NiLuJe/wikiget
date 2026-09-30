@@ -295,6 +295,7 @@ class Downloader:
                         fd.write(chunk)
                         progress.update(task, advance=len(chunk))
 
+                        # Clean up on SIGINT, so we don't leave incomplete files around
                         if self.done_event.is_set():
                             adapter.error("Caught a SIGINT, aborting...")
                             dest.unlink()
