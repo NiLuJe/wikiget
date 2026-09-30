@@ -202,10 +202,10 @@ class Downloader:
             self.progress_bar() as progress,
             ThreadPoolExecutor(max_workers=self.thread_count) as executor,
         ):
-            futures = [
+            futures = (
                 executor.submit(self.download_pipeline, line_num, line, progress)
                 for line_num, line in batch_files(self.input)
-            ]
+            )
             # wait for downloads to finish
             for future in as_completed(futures):
                 self.status.update(future.result())
