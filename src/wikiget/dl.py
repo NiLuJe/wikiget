@@ -36,8 +36,11 @@ from rich.progress import (
     BarColumn,
     DownloadColumn,
     Progress,
+    SpinnerColumn,
     TaskID,
     TextColumn,
+    TaskProgressColumn,
+    TimeElapsedColumn,
     TimeRemainingColumn,
     TransferSpeedColumn,
 )
@@ -45,7 +48,7 @@ from rich.progress import (
 from wikiget.client import connect_to_site, query_api
 from wikiget.exceptions import ParseError
 from wikiget.logging import FileLogAdapter
-from wikiget.parse import get_dest, batch_files
+from wikiget.parse import get_dest, batch_files, batch_size
 from wikiget.validations import verify_hash
 
 if TYPE_CHECKING:
@@ -122,8 +125,22 @@ class Downloader:
 
         return file
 
+    def overall_progress_bar(self) -> Progress:
+        """Return a rich.progress Progress instance laid out for overall progress"""
+
+        return Progress(
+            SpinnerColumn(),
+            TextColumn("[bold white][progress.description]{task.description}"),
+            BarColumn(bar_width=None),
+            TaskProgressColumn(),
+            "•",
+            TimeRemainingColumn(elapsed_when_finished=False),
+            TimeElapsedColumn(),
+            console=self.console,
+        )
+
     def progress_bar(self) -> Progress:
-        """Return a rich.progress Progress instance laid out for our downloads"""
+        """Return a rich.progress Progress instance laid out for our individual downloads"""
 
         return Progress(
             TextColumn("[bold blue]{task.fields[filename]}", justify="right"),
@@ -157,7 +174,10 @@ class Downloader:
 
         if self.batch_mode:
             # batch download mode
-            self.threaded_download() if self.thread_count > 1 else self.batched_download()
+
+            # Display an outer progress bar that tracks prgress over the full batch
+            with self.overall_progress_bar() as overall_progress:
+                self.threaded_download(overall_progress) if self.thread_count > 1 else self.batched_download(overall_progress)
         else:
             # single download mode
             with self.progress_bar() as progress:
@@ -178,19 +198,21 @@ class Downloader:
         return 1 if errors else 0
 
 
-    def batched_download(self) -> None:
+    def batched_download(self, overall_progress: Progress) -> None:
         """Download files specified in a batch file.
 
         The batch file is parsed as we go, and files are checked
         for validity before being downloaded one by one.
         """
 
+        overall_task = overall_progress.add_task("Batched download", total=batch_size(self.input))
         with self.progress_bar() as progress:
             for line_num, line in batch_files(self.input):
                 self.status.update(self.download_pipeline(line_num, line, progress))
+                overall_progress.advance(overall_task)
 
 
-    def threaded_download(self) -> None:
+    def threaded_download(self, overall_progress: Progress) -> None:
         """Download files specified in a batch file.
 
         The batch file is parsed into a dictionary, and the dictionary's items are checked
@@ -198,6 +220,7 @@ class Downloader:
         if threading was specified on the command line.
         """
 
+        overall_task = overall_progress.add_task("Threaded download", total=batch_size(self.input))
         with (
             self.progress_bar() as progress,
             ThreadPoolExecutor(max_workers=self.thread_count) as executor,
@@ -209,6 +232,7 @@ class Downloader:
             # wait for downloads to finish
             for future in as_completed(futures):
                 self.status.update(future.result())
+                overall_progress.advance(overall_task)
 
                 # Abort early on SIGINT
                 if self.done_event.is_set():
