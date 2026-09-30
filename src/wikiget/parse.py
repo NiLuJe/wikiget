@@ -21,7 +21,9 @@ from __future__ import annotations
 
 import fileinput
 import logging
+import sys
 from typing import TYPE_CHECKING, Iterable
+
 from urllib.parse import unquote, urlparse
 
 import wikiget
@@ -74,6 +76,26 @@ def get_dest(dl: str, args: Namespace) -> File:
     dest = args.output or filename
     return File(filename, dest, site_name)
 
+
+def batch_size(batch_file: str) -> int:
+    """Returns the amount of viable lines in the input"""
+
+    # NOTE: Because we consume batch_files as a generator,
+    #       we don't really have a better way to.
+    # NOTE: A fun and faster implementation can be found in more_itertools.ilen,
+    #       but without input validaton ;).
+    size = 0
+    with fileinput.input(batch_file, encoding="utf-8") as fd:
+        for line in fd:
+            line_s = line.strip()
+            if line_s and not line_s.startswith("#"):
+                size += 1
+
+    # Rewind stdin for later batch_files calls
+    if batch_file == "-":
+        sys.stdin.seek(0)
+
+    return size
 
 def batch_files(batch_file: str) -> Iterable[tuple[int, str]]:
     """Parse a batch file or stdin for valid input.
