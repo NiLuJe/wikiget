@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import sys
 
 import wikiget
@@ -135,6 +136,11 @@ def cli() -> int:
     configure_logging(verbosity=args.verbose, logfile=args.logfile, quiet=args.quiet)
 
     logger = logging.getLogger(__name__)
+
+    # Sanity check args.FILE
+    if args.FILE != "-" and not (os.path.isfile(args.FILE) and os.access(args.FILE, os.R_OK)):
+        logger.critical("Cannot access input file `%s`!")
+        return 1
 
     # log events are appended to the file if it already exists, so note the start of a
     # new download session
