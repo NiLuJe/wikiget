@@ -82,6 +82,7 @@ def connect_to_site(site_name: str, args: Namespace) -> Site:
         backoff_factor=5,
         backoff_max=30,
         backoff_jitter=2,
+        # NOTE: CommonsDownloadTool also attempts to retry on 403, which is... weird?
         status_forcelist=[429, 500, 502, 503, 504],
         allowed_methods={"GET", "HEAD", "OPTIONS", "TRACE"},
         respect_retry_after_header=True,
