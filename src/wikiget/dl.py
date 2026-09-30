@@ -19,6 +19,7 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import partial
 import logging
@@ -73,9 +74,28 @@ class Downloader:
         self.sites_lock = Lock()
         self.console = Console()
 
+        self.status = Counter({
+            "errors": 0,
+            "warnings": 0,
+        })
+
         # And install our SIGINT handler
         self.done_event = Event()
         signal.signal(signal.SIGINT, partial(self.handle_sigint))
+
+    def errors(self) -> int:
+        return self.status["errors"]
+
+    @staticmethod
+    def increment_errors(counter: Counter) -> None:
+        counter["errors"] += 1
+
+    def warnings(self) -> int:
+        return self.status["warnings"]
+
+    @staticmethod
+    def increment_warnings(counter: Counter) -> None:
+        counter["warnings"] += 1
 
     def handle_sigint(self, _signum: int, _frame: FrameType):
         self.done_event.set()
@@ -136,51 +156,46 @@ class Downloader:
 
         if self.batch_mode:
             # batch download mode
-            errors = self.threaded_download() if self.thread_count > 1 else self.batched_download()
-            if errors:
-                # return non-zero exit code if any problems were encountered,
-                # even if some downloads completed successfully
-                logger.warning(
-                    "%i problem%s encountered during batch processing",
-                    errors,
-                    "s"[: errors ^ 1],
-                )
+            self.threaded_download() if self.thread_count > 1 else self.batched_download()
         else:
             # single download mode
             with self.progress_bar() as progress:
-                errors = self.download_pipeline(1, self.input, progress)
+                self.status = self.download_pipeline(1, self.input, progress)
 
+        errors, warnings = self.errors(), self.warnings()
+        if errors or warnings:
+            logger.warning(
+                    "%d error%s and %d warning%s encountered during processing",
+                    errors,
+                    "s"[: errors ^ 1],
+                    warnings,
+                    "s"[: warnings ^ 1],
+            )
+
+        # return a non-zero exit code if any meaningful problems were encountered,
+        # even if some downloads completed successfully
         return 1 if errors else 0
 
 
-    def batched_download(self) -> int:
+    def batched_download(self) -> None:
         """Download files specified in a batch file.
 
         The batch file is parsed as we go, and files are checked
         for validity before being downloaded one by one.
-
-        :return: number of errors encountered during processing
-        :rtype: int
         """
-        errors = 0
 
         with self.progress_bar() as progress:
             for line_num, line in batch_files(self.input):
-                errors += self.download_pipeline(line_num, line, progress)
-        return errors
+                self.status.update(self.download_pipeline(line_num, line, progress))
 
 
-    def threaded_download(self) -> int:
+    def threaded_download(self) -> None:
         """Download files specified in a batch file.
 
         The batch file is parsed into a dictionary, and the dictionary's items are checked
         for validity before being downloaded using a ThreadPool for simultaneous downloads,
         if threading was specified on the command line.
-
-        :return: number of errors encountered during processing
-        :rtype: int
         """
-        errors = 0
 
         with (
             self.progress_bar() as progress,
@@ -192,20 +207,21 @@ class Downloader:
             ]
             # wait for downloads to finish
             for future in as_completed(futures):
-                errors += future.result()
+                self.status.update(future.result())
 
                 # Abort early on SIGINT
                 if self.done_event.is_set():
                     executor.shutdown(wait=False, cancel_futures=True)
                     break
-        return errors
 
 
-    def query_filename(self, line_num: int, line: str) -> File | None:
+    def query_filename(self, line_num: int, line: str) -> tuple[Counter, File | None]:
         """Prepare a download and query Commons for the canonical download URL
 
         Returns a File instance on success or None on failure.
         """
+
+        status = Counter()
 
         logger.info("Processing '%s' at line %i", line, line_num)
         try:
@@ -225,38 +241,41 @@ class Downloader:
                     self.sites[site.host] = site
             file.image = query_api(file.name, site)
         except ParseError as e:
-            logger.warning("%s (line %i)", str(e), line_num)
-            return None
+            logger.error("%s (line %i)", str(e), line_num)
+            self.increment_errors(status)
+            file = None
         except FileExistsError as e:
             logger.warning(e)
-            return None
+            self.increment_warnings(status)
+            file = None
         except (ConnectionError, HTTPError, InvalidResponse, LoginError, APIError):
-            logger.warning(
+            logger.error(
                 "Unable to download '%s' (line %i) due to an API query error",
                 line,
                 line_num,
             )
-            return None
+            self.increment_errors(status)
+            file = None
 
-        return file
+        return status, file
 
 
-    def download(self, f: File, progress: Progress, task: TaskID) -> int:
+    def download(self, f: File, progress: Progress, task: TaskID) -> Counter:
         """Fetch file information and contents if the file exists and save it to disk.
 
         :param f: a File object representing the file to be downloaded
         :type f: wikiget.file.File
         :param args: command-line arguments and their values
         :type args: argparse.Namespace
-        :return: number of errors encountered during processing
-        :rtype: int
+        :return: count of errors and warnings encountered during processing
+        :rtype: Counter
         """
         file = f.image
         filename = f.name
         dest = f.dest
         site = file.site
 
-        errors = 0
+        status = Counter()
 
         # prepend the current filename to all log messages
         adapter = FileLogAdapter(logger, {"filename": filename})
@@ -275,7 +294,7 @@ class Downloader:
 
             if self.dry_run:
                 adapter.warning("Dry run; download skipped")
-                return errors
+                return status
 
             try:
                 progress.update(task, total=file_size)
@@ -296,8 +315,8 @@ class Downloader:
                     except HTTPError as e:
                         adapter.error(f"File could not be downloaded: {e}")
                         dest.unlink()
-                        errors += 1
-                        return errors
+                        self.increment_errors(status)
+                        return status
 
                     for chunk in r.iter_content(None):
                         fd.write(chunk)
@@ -308,14 +327,14 @@ class Downloader:
                             adapter.error("Caught a SIGINT, aborting")
                             dest.unlink()
                             progress.remove_task(task)
-                            return errors
+                            return status
                     progress.console.log(f"Downloaded [bold magenta]{filename}[/]")
             except OSError as e:
                 adapter.error(f"File could not be written: {e}")
                 dest.unlink(missing_ok=True)
                 progress.remove_task(task)
-                errors += 1
-                return errors
+                self.increment_errors(status)
+                return status
 
             # verify file integrity and log the details
             try:
@@ -324,8 +343,8 @@ class Downloader:
                 adapter.error(f"File downloaded but could not be verified: {e}")
                 dest.unlink()
                 progress.remove_task(task)
-                errors += 1
-                return errors
+                self.increment_errors(status)
+                return status
 
             adapter.info(f"Remote file SHA1 is {file_sha1}")
             adapter.info(f"Local file SHA1 is {dl_sha1}")
@@ -339,7 +358,7 @@ class Downloader:
             else:
                 adapter.error("Hash mismatch! Downloaded file may be corrupt.")
                 dest.unlink()
-                errors += 1
+                self.increment_errors(status)
 
             # NOTE: A single Progress instance will only ever show as much tasks as the terminal height allows...
             #       Drop completed tasks to free up space.
@@ -348,25 +367,29 @@ class Downloader:
         else:
             # no file information returned
             adapter.warning("Target does not appear to be a valid file")
-            errors += 1
+            self.increment_warnings(status)
 
-        return errors
+        return status
 
 
-    def download_pipeline(self, line_num: int, line: str, progress: Progress) -> int:
+    def download_pipeline(self, line_num: int, line: str, progress: Progress) -> Counter:
         """Full download pipeline, from API query, to progress handling, to actual download.
 
            Returns the number of errors encountered.
         """
 
+        status = Counter()
+
         # Abort early w/o inflating the error count if we caught a SIGINT
         if self.done_event.is_set():
-            return 0
+            return status
 
-        file = self.query_filename(line_num, line)
+        status, file = self.query_filename(line_num, line)
 
         if not file:
-            return 1
+            return status
 
         task = progress.add_task("download", filename=str(file.dest), total=None, start=False)
-        return self.download(file, progress, task)
+        status.update(self.download(file, progress, task))
+
+        return status
