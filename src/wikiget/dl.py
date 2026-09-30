@@ -64,6 +64,11 @@ class Downloader:
         self.args = args
         self.input = self.args.FILE
         self.output = self.args.output
+        self.force_redownload = self.args.force
+        self.batch_mode = self.args.batch
+        self.thread_count = self.args.threads
+        self.dry_run = self.args.dry_run
+
         self.sites: dict[str, Site] = {}
         self.sites_lock = Lock()
         self.console = Console()
@@ -90,7 +95,7 @@ class Downloader:
         file = get_dest(dl, self.args)
 
         # check if the destination file already exists; don't overwrite unless the user says
-        if file.dest.is_file() and file.dest.stat().st_size != 0 and not self.args.force:
+        if file.dest.is_file() and file.dest.stat().st_size != 0 and not self.force_redownload:
             msg = f"[{file.dest}] File already exists; skipping download (use -f to force)"
             raise FileExistsError(msg)
 
@@ -129,9 +134,9 @@ class Downloader:
         :rtype: int
         """
 
-        if self.args.batch:
+        if self.batch_mode:
             # batch download mode
-            errors = self.threaded_download() if self.args.threads > 1 else self.batched_download()
+            errors = self.threaded_download() if self.thread_count > 1 else self.batched_download()
             if errors:
                 # return non-zero exit code if any problems were encountered,
                 # even if some downloads completed successfully
@@ -179,7 +184,7 @@ class Downloader:
 
         with (
             self.progress_bar() as progress,
-            ThreadPoolExecutor(max_workers=self.args.threads) as executor,
+            ThreadPoolExecutor(max_workers=self.thread_count) as executor,
         ):
             futures = [
                 executor.submit(self.download_pipeline, line_num, line, progress)
@@ -268,7 +273,7 @@ class Downloader:
             adapter.info(filename_log)
             adapter.info(f"{file_url}")
 
-            if self.args.dry_run:
+            if self.dry_run:
                 adapter.warning("Dry run; download skipped")
                 return errors
 
