@@ -19,7 +19,7 @@
 
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import partial
 import logging
 import signal
@@ -178,13 +178,18 @@ class Downloader:
             self.progress_bar() as progress,
             ThreadPoolExecutor(max_workers=self.args.threads) as executor,
         ):
-            futures = []
-            for line_num, line in batch_files(self.input):
-                future = executor.submit(self.download_pipeline, line_num, line, progress)
-                futures.append(future)
+            futures = [
+                executor.submit(self.download_pipeline, line_num, line, progress)
+                for line_num, line in batch_files(self.input)
+            ]
             # wait for downloads to finish
-            for future in futures:
+            for future in as_completed(futures):
                 errors += future.result()
+
+                # Abort early on SIGINT
+                if self.done_event.is_set():
+                    executor.shutdown(wait=False, cancel_futures=True)
+                    break
         return errors
 
 
