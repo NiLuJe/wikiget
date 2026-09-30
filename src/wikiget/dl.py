@@ -23,7 +23,7 @@ from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 import logging
 import signal
-from threading import Event
+from threading import Event, Lock
 from types import FrameType
 from typing import TYPE_CHECKING
 
@@ -64,6 +64,7 @@ class Downloader:
         self.input = self.args.FILE
         self.output = self.args.output
         self.sites: dict[str, Site] = {}
+        self.sites_lock = Lock()
 
         # And install our SIGINT handler
         self.done_event = Event()
@@ -196,17 +197,19 @@ class Downloader:
         logger.info("Processing '%s' at line %i", line, line_num)
         try:
             file = self.prep_download(line)
-            site = self.sites.get(file.site, None)
+            # Make sure concurrent threads won't attempt to connect to the same site
+            with self.sites_lock:
+                site = self.sites.get(file.site, None)
 
-            # if there's already a Site object matching the desired host, reuse it
-            # to reduce the number of API calls made per file
-            if site:
-                logger.debug("Reusing the existing connection to %s", site.host)
-            else:
-                logger.debug("Making a new connection to %s", file.site)
-                site = connect_to_site(file.site, self.args)
-                # cache the new Site for reuse
-                self.sites[site.host] = site
+                # if there's already a Site object matching the desired host, reuse it
+                # to reduce the number of API calls made per file
+                if site:
+                    logger.debug("Reusing the existing connection to %s", site.host)
+                else:
+                    logger.debug("Making a new connection to %s", file.site)
+                    site = connect_to_site(file.site, self.args)
+                    # cache the new Site for reuse
+                    self.sites[site.host] = site
             file.image = query_api(file.name, site)
         except ParseError as e:
             logger.warning("%s (line %i)", str(e), line_num)
