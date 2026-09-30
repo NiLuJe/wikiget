@@ -21,6 +21,7 @@ from __future__ import annotations
 
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import timedelta
 from functools import partial
 import logging
 import signal
@@ -316,6 +317,7 @@ class Downloader:
                         adapter.error(f"File could not be downloaded: {e}")
                         dest.unlink()
                         self.increment_errors(status)
+                        progress.console.log(f"[bold red]FAILED[/] to download [bold magenta]{filename}[/]")
                         return status
 
                     for chunk in r.iter_content(None):
@@ -327,13 +329,24 @@ class Downloader:
                             adapter.error("Caught a SIGINT, aborting")
                             dest.unlink()
                             progress.remove_task(task)
+                            progress.console.log(f"[bold red]Aborted[/] [bold magenta]{filename}[/] download")
                             return status
-                    progress.console.log(f"Downloaded [bold magenta]{filename}[/]")
+
+                    # Pull the elapsed time for our task out of rich's guts...
+                    t = progress._tasks[task]
+                    elapsed = t.finished_time if t.finished else t.elapsed
+                    if elapsed is None:
+                        delta = "?"
+                    else:
+                        # NOTE: Its str dunder will do the formatting for us :)
+                        delta = timedelta(seconds=max(0, round(elapsed)))
+                    progress.console.log(f"Downloaded [bold magenta]{filename}[/] in [bold yellow]{delta}[/]")
             except OSError as e:
                 adapter.error(f"File could not be written: {e}")
                 dest.unlink(missing_ok=True)
                 progress.remove_task(task)
                 self.increment_errors(status)
+                progress.console.log(f"[bold red]FAILED[/] to write local file for [bold magenta]{filename}[/]")
                 return status
 
             # verify file integrity and log the details
@@ -344,6 +357,7 @@ class Downloader:
                 dest.unlink()
                 progress.remove_task(task)
                 self.increment_errors(status)
+                progress.console.log(f"[bold red]FAILED[/] to verify downloaded [bold magenta]{filename}[/]")
                 return status
 
             adapter.info(f"Remote file SHA1 is {file_sha1}")
@@ -359,6 +373,7 @@ class Downloader:
                 adapter.error("Hash mismatch! Downloaded file may be corrupt.")
                 dest.unlink()
                 self.increment_errors(status)
+                progress.console.log(f"[bold red]CORRUPT[/] download for [bold magenta]{filename}[/]")
 
             # NOTE: A single Progress instance will only ever show as much tasks as the terminal height allows...
             #       Drop completed tasks to free up space.
