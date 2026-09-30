@@ -29,6 +29,7 @@ from typing import TYPE_CHECKING
 
 from mwclient import APIError, InvalidResponse, LoginError, Site
 from requests import ConnectionError, HTTPError
+from rich.console import Console
 from rich.progress import (
     BarColumn,
     DownloadColumn,
@@ -65,6 +66,7 @@ class Downloader:
         self.output = self.args.output
         self.sites: dict[str, Site] = {}
         self.sites_lock = Lock()
+        self.console = Console()
 
         # And install our SIGINT handler
         self.done_event = Event()
@@ -72,6 +74,7 @@ class Downloader:
 
     def handle_sigint(self, signum: int, frame: FrameType):
         self.done_event.set()
+        self.console.log("Caught a [bold red]SIGINT[/], tearing down pending tasks...")
 
     def prep_download(self, dl: str) -> File:
         """Prepare to download a file by parsing the filename or URL and CLI arguments.
@@ -93,8 +96,7 @@ class Downloader:
 
         return file
 
-    @staticmethod
-    def progress_bar() -> Progress:
+    def progress_bar(self) -> Progress:
         """Return a rich.progress Progress instance laid out for our downloads"""
 
         return Progress(
@@ -108,6 +110,7 @@ class Downloader:
             TransferSpeedColumn(),
             "•",
             TimeRemainingColumn(elapsed_when_finished=True),
+            console=self.console,
         )
 
 
@@ -297,7 +300,7 @@ class Downloader:
 
                         # Clean up on SIGINT, so we don't leave incomplete files around
                         if self.done_event.is_set():
-                            adapter.error("Caught a SIGINT, aborting...")
+                            adapter.error("Caught a SIGINT, aborting")
                             dest.unlink()
                             progress.remove_task(task)
                             return errors
