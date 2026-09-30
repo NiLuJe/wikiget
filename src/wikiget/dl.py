@@ -133,8 +133,8 @@ class Downloader:
             # batch download mode
             errors = self.threaded_download() if self.args.threads > 1 else self.batched_download()
             if errors:
-                # return non-zero exit code if any problems were encountered, even if some
-                # downloads completed successfully
+                # return non-zero exit code if any problems were encountered,
+                # even if some downloads completed successfully
                 logger.warning(
                     "%i problem%s encountered during batch processing",
                     errors,
@@ -209,8 +209,8 @@ class Downloader:
             with self.sites_lock:
                 site = self.sites.get(file.site, None)
 
-                # if there's already a Site object matching the desired host, reuse it
-                # to reduce the number of API calls made per file
+                # if there's already a Site object matching the desired host,
+                # reuse it to reduce the number of API calls made per file
                 if site:
                     logger.debug("Reusing the existing connection to %s", site.host)
                 else:
