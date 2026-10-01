@@ -34,10 +34,11 @@ classifiers = [
 keywords = ["commons", "mediawiki", "wikimedia", "wikipedia"]
 license = {text = "GPL-3.0-or-later"}
 dependencies = [
-  "more-itertools",
+  "more-itertools>=11.1.0",
   "mwclient>=0.10.0",
+  "niquests[speedups]>=3.21.2",
   "requests",
-  "rich",
+  "rich>=15.0.0",
 ]
 requires-python = ">= 3.11"
 
