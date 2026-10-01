@@ -5,14 +5,14 @@ build-backend = "hatchling.build"
 [project]
 name = "wikiget"
 dynamic = ["version"]
-description = "CLI tool for downloading files from MediaWiki sites"
+description = "CLI tool for downloading files from Wikimedia Commons"
 readme = "README.md"
 authors = [
   {name = "Cody Logan", email = "cody@lokken.dev"}
 ]
-requires-python = ">=3.10"
-license = {text = "GPL-3.0-or-later"}
-keywords = ["commons", "mediawiki", "wikimedia", "wikipedia"]
+maintainers = [
+  {name = "NiLuJe", email = "ninuje@gmail.com"}
+]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Environment :: Console",
@@ -26,25 +26,99 @@ classifiers = [
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
 ]
+keywords = ["commons", "mediawiki", "wikimedia", "wikipedia"]
+license = {text = "GPL-3.0-or-later"}
 dependencies = [
   "more-itertools",
   "mwclient>=0.10.0",
   "requests",
   "rich",
 ]
+requires-python = ">= 3.11"
+
+[dependency-groups]
+dev = [
+    { include-group = "lint" },
+    { include-group = "test" },
+    { include-group = "typecheck" },
+]
+lint = [
+    "ruff",
+]
+test = [
+    "coverage",
+    "pytest",
+]
+typecheck = [
+    "ty",
+]
+docs = [
+    "zensical",
+    "mkdocstrings-python",
+]
 
 [project.urls]
-Repository = "https://github.com/clpo13/wikiget"
-"Bug Reports" = "https://github.com/clpo13/wikiget/issues"
+bugs = "https://github.com/NiLuJe/wikiget/issues"
+changelog = "https://github.com/NiLuJe/wikiget/releases"
+documentation = "https://NiLuJe.github.io/wikiget/"
+homepage = "https://github.com/NiLuJe/wikiget"
 
 [project.scripts]
 wikiget = "wikiget.wikiget:cli"
+
+[tool.ty]
+# All rules are enabled as "error" by default; no need to specify unless overriding.
+# Example override: relax a rule for the entire project (uncomment if needed).
+# rules.TY015 = "warn"  # For invalid-argument-type, warn instead of error.
+
+[tool.ruff]
+line-length = 122
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # Pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+]
+extend-ignore = ["E402", "W191", "E501"]
+
+[tool.ruff.lint.isort]
+force-sort-within-sections = true
+
+[tool.ruff.format]
+indent-style = "tab"
+
+[tool.coverage.run]
+branch = true
+parallel = true
+source = ["src/", "tests/"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+fail_under = 50
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "if typing.TYPE_CHECKING:",
+    "@overload",
+    "@typing.overload",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+    "raise NotImplementedError",
+    "\\.\\.\\.",
+]
+
+[tool.uv]
+package = true
+default-groups = ["dev"]
 
 [tool.hatch.version]
 path = "src/wikiget/version.py"
@@ -64,149 +138,3 @@ exclude = [
 "docs/wikiget.1" = "share/man/man1/wikiget.1"
 "README.md" = "share/doc/wikiget/README.md"
 "LICENSE" = "share/doc/wikiget/LICENSE"
-
-[tool.hatch.envs.default]
-dependencies = [
-  "coverage[toml]>=6.5",
-  "pytest",
-  "requests_mock",
-]
-[tool.hatch.envs.default.scripts]
-test = "python -m pytest {args}"
-test-cov = "coverage run -m pytest {args}"
-cov-report = [
-  "- coverage combine",
-  "coverage report",
-]
-htmlcov = "coverage html"
-xmlcov = "coverage xml"
-cov = [
-  "test-cov",
-  "cov-report",
-  "htmlcov",
-  "xmlcov",
-]
-
-[[tool.hatch.envs.all.matrix]]
-python = ["3.10", "3.11", "3.12", "3.13", "3.14"]
-
-[tool.hatch.envs.lint]
-detached = true
-dependencies = [
-  "black",
-  "mypy",
-  "ruff",
-]
-[tool.hatch.envs.lint.scripts]
-typing = "mypy --install-types --non-interactive {args:src/wikiget tests}"
-style = [
-  "ruff {args:.}",
-  "black --check --diff {args:.}",
-]
-fmt = [
-  "black {args:.}",
-  "ruff --fix {args:.}",
-  "style",
-]
-all = [
-  "style",
-  "typing",
-]
-
-[tool.black]
-target-version = ["py310"]
-line-length = 120
-
-[tool.ruff]
-target-version = "py310"
-line-length = 120
-select = [
-  "A",
-  "ARG",
-  "B",
-  "C",
-  "DTZ",
-  "E",
-  "EM",
-  "F",
-  "FA",
-  "FBT",
-  "G",
-  "I",
-  "ICN",
-  "ISC",
-  "N",
-  "PLC",
-  "PLE",
-  "PLR",
-  "PLW",
-  "PT",
-  "Q",
-  "RUF",
-  "S",
-  "T",
-  "TCH",
-  "TID",
-  "UP",
-  "W",
-  "YTT",
-]
-ignore = [
-  # Allow non-abstract empty methods in abstract base classes
-  "B027",
-  # Allow boolean positional values in function calls, like `dict.get(... True)`
-  "FBT003",
-  # Ignore checks for possible passwords
-  "S105", "S106", "S107",
-  # Ignore complexity
-  "C901", "PLR0911", "PLR0912", "PLR0913", "PLR0915",
-]
-unfixable = [
-  # Don't touch unused imports
-  "F401",
-]
-
-[tool.ruff.isort]
-known-first-party = ["wikiget"]
-
-[tool.ruff.flake8-tidy-imports]
-ban-relative-imports = "all"
-
-[tool.ruff.per-file-ignores]
-# Tests can use magic values, assertions, and relative imports
-"tests/**/*" = ["PLR2004", "S101", "TID252"]
-
-[tool.coverage.run]
-source_pkgs = ["wikiget"]
-branch = true
-parallel = true
-
-[tool.coverage.paths]
-wikiget = ["wikiget"]
-tests = ["tests"]
-
-[tool.coverage.report]
-exclude_lines = [
-  "no cov",
-  "if __name__ == .__main__.:",
-  "if TYPE_CHECKING:",
-]
-
-[tool.mypy]
-python_version = "3.10"
-warn_unused_configs = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-strict_equality = true
-check_untyped_defs = true
-extra_checks = true
-disallow_untyped_defs = true
-
-[[tool.mypy.overrides]]
-module = [
-  "mwclient",
-  "mwclient.image",
-  "pytest",
-  "requests_mock",
-]
-ignore_missing_imports = true
