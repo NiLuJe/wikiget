@@ -39,17 +39,12 @@ Examples::
 
 """
 
-from mwclient import __version__ as mwclient_version
-
 from wikiget.version import __version__
 
 # set some global constants
 BLOCKSIZE = 65536
 DEFAULT_SITE = "commons.wikimedia.org"
 DEFAULT_PATH = "/w/"
-USER_AGENT = (
-    f"wikiget/{__version__} (https://github.com/NiLuJe/wikiget) "
-    f"mwclient/{mwclient_version}"
-)
+USER_AGENT = f"wikiget/{__version__} (https://github.com/NiLuJe/wikiget)"
 STD_VERBOSE = 1
 VERY_VERBOSE = 2
