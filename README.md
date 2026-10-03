@@ -1,8 +1,8 @@
 # wikiget
 
 [![Made with Python](https://img.shields.io/badge/made_with-python-3776AB?logo=python)][python]
-[![GitHub Actions](https://img.shields.io/github/actions/workflow/status/clpo13/wikiget/python.yml?logo=github)][action]
-[![Codecov coverage](https://img.shields.io/codecov/c/gh/clpo13/wikiget)][codecov]
+[![GitHub Actions](https://img.shields.io/github/actions/workflow/status/NiLuJe/wikiget/python.yml?logo=github)][action]
+[![Codecov coverage](https://img.shields.io/codecov/c/gh/NiLuJe/wikiget)][codecov]
 [![PyPI version](https://img.shields.io/pypi/v/wikiget)][pypi]
 [![PyPI license](https://img.shields.io/pypi/l/wikiget)][license]
 
@@ -11,7 +11,7 @@ file name or the URL of its description page.
 
 ## Installation
 
-Requires Python 3.10+ and pip. Install the latest version with:
+Requires Python 3.11+ and pip. Install the latest version with:
 
 ```bash
 pip install wikiget
@@ -21,7 +21,7 @@ For the latest features, at the risk of bugs and undocumented behavior, you can 
 from [GitHub]:
 
 ```bash
-pip install https://github.com/clpo13/wikiget/archive/refs/heads/master.zip
+pip install https://github.com/NiLuJe/wikiget/archive/refs/heads/master.zip
 ```
 
 Alternatively, if you have [Homebrew] installed:
@@ -99,11 +99,11 @@ You should have received a copy of the GNU General Public License along with thi
 <https://www.gnu.org/licenses/>.
 
 [wget]: https://www.gnu.org/software/wget/
-[github]: https://github.com/clpo13/wikiget/
+[github]: https://github.com/NiLuJe/wikiget/
 [homebrew]: https://brew.sh/
 [python]: https://www.python.org/
-[action]: https://github.com/clpo13/wikiget/actions/workflows/python.yml
-[codecov]: https://app.codecov.io/gh/clpo13/wikiget/
+[action]: https://github.com/NiLuJe/wikiget/actions/workflows/python.yml
+[codecov]: https://app.codecov.io/gh/NiLuJe/wikiget/
 [pypi]: https://pypi.org/project/wikiget/
-[license]: https://github.com/clpo13/wikiget/blob/master/LICENSE
+[license]: https://github.com/NiLuJe/wikiget/blob/master/LICENSE
 [contributing]: CONTRIBUTING.md
