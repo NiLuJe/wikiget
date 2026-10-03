@@ -27,7 +27,6 @@ import logging
 import signal
 from threading import Event, Lock
 from types import FrameType
-from typing import TYPE_CHECKING
 
 from mwclient import APIError, InvalidResponse, LoginError, Site
 from requests import ConnectionError, HTTPError
@@ -51,10 +50,8 @@ from wikiget.logging import FileLogAdapter
 from wikiget.parse import get_dest, batch_files, batch_size
 from wikiget.validations import verify_hash
 
-if TYPE_CHECKING:
-    from argparse import Namespace
-
-    from wikiget.file import File
+from argparse import Namespace
+from wikiget.file import File
 
 logger = logging.getLogger(__name__)
 

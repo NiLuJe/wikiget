@@ -21,12 +21,10 @@ from __future__ import annotations
 
 import hashlib
 import re
-from typing import TYPE_CHECKING
 
 from wikiget import BLOCKSIZE
 
-if TYPE_CHECKING:
-    from pathlib import Path
+from pathlib import Path
 
 
 def valid_file(search_string: str) -> re.Match | None:
