@@ -20,19 +20,12 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
-
-from wikiget import DEFAULT_SITE
-
-if TYPE_CHECKING:
-    from mwclient.image import Image
-
 
 class File:
     """A file object."""
 
     def __init__(
-        self, name: str, dest: str = "", site: str = "", image: Image = None
+        self, name: Path, dest: Path | None,
     ) -> None:
         """Initialize a new file with the given parameters.
 
@@ -43,17 +36,10 @@ class File:
         :param name: name of the file
         :type name: str
         :param dest: output name of the file; if not specified, defaults to name
-        :type dest: str, optional
-        :param site: name of the site hosting the file; if not specified, defaults to
-            the global default site
-        :type site: str, optional
-        :param image: mwclient image object retrieved from the host site
-        :type image: mwclient.image.Image, optional
+        :type dest: Path, optional
         """
         self.name = name
-        self.dest = Path(dest) if dest else Path(name)
-        self.site = site if site else DEFAULT_SITE
-        self.image = image
+        self.dest = dest or name
 
     def __eq__(self, other: object) -> bool:
         """Compare this File object with another for equality.
@@ -68,8 +54,6 @@ class File:
         return (
             self.name == other.name
             and self.dest == other.dest
-            and self.site == other.site
-            and self.image == other.image
         )
 
     def __str__(self) -> str:
@@ -86,9 +70,8 @@ class File:
         :return: string form of the class
         :rtype: str
         """
-        attr_list = [self.name, self.dest, self.site]
-        return '{}("{}", {})'.format(
+        attr_list = [self.name, self.dest]
+        return '{}("{}")'.format(
             self.__class__.__name__,
             '", "'.join(map(str, attr_list)),
-            self.image,
         )

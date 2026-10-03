@@ -18,11 +18,13 @@
 """Parse download targets and batch files."""
 
 from __future__ import annotations
+from pathlib import Path
 
+from argparse import Namespace
 import fileinput
 import logging
 import sys
-from typing import TYPE_CHECKING, Iterable
+from collections.abc import Iterable
 from urllib.parse import unquote, urlparse
 
 from more_itertools import ilen
@@ -31,9 +33,6 @@ import wikiget
 from wikiget.exceptions import ParseError
 from wikiget.file import File
 from wikiget.validations import valid_file
-
-if TYPE_CHECKING:
-    from argparse import Namespace
 
 logger = logging.getLogger(__name__)
 
@@ -46,21 +45,15 @@ def get_dest(dl: str, args: Namespace) -> File:
     :param args: command-line arguments and their values
     :type args: argparse.Namespace
     :raises ParseError: the target was unable to be parsed as a valid file
-    :return: a File object representing the target, destination, and site
+    :return: a File object representing the target and destination
     :rtype: wikiget.file.File
     """
     url = urlparse(dl)
 
     if url.netloc:
         filename = url.path
-        site_name = url.netloc
-        if args.site is not wikiget.DEFAULT_SITE:
-            # this will work even if the user specifies 'commons.wikimedia.org' since
-            # we're comparing objects instead of values ('is not' vs. '!=')
-            logger.warning("Target is a URL; ignoring site specified with --site")
     else:
         filename = dl
-        site_name = args.site
 
     file_match = valid_file(filename)
 
@@ -73,9 +66,10 @@ def get_dest(dl: str, args: Namespace) -> File:
         msg = f"Could not parse input '{dl}' as a file"
         raise ParseError(msg)
 
-    filename = unquote(filename)  # remove URL encoding for special characters
-    dest = args.output or filename
-    return File(filename, dest, site_name)
+    filename = Path(unquote(filename))  # remove URL encoding for special characters
+    # FIXME: Drop this once output is already a Path
+    dest = Path(args.output) or filename
+    return File(filename, dest)
 
 
 def batch_size(batch_file: str) -> int:
