@@ -122,9 +122,9 @@ def cli(
     dry_run: Annotated[bool, Parameter(alias="-n", group=flags)] = False,
     concurrency: Annotated[PositiveInt, Parameter(alias="-j")] = 3,
 ) -> int:
-    """Download files from Wikimedia Commons
+    """Download files from **Wikimedia Commons**
 
-    CLI Help:
+    **CLI** Help:
 
     Parameters
     ----------
