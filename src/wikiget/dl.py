@@ -175,7 +175,7 @@ class Downloader:
         filename = unquote(filename)
 
         # Get the canonical commons URL for that file
-        file_url = self.get_commons_url(filename)
+        file_url = self.get_commons_url(filename.replace(" ", "_"))
 
         filename = Path(filename)
         # FIXME: Support prepending an output directory here
