@@ -234,6 +234,9 @@ class Downloader:
         ua = {"user-agent": USER_AGENT}
 
         # FIXME: Switch to base_url?
+        # NOTE: There's currently only a single A record for upload.wikimedia.org,
+        #       so, no need for happy eyeballs.
+        # FIXME: Reimplement authentification (c.f., mwclient site_login)
         with (
             niquests.Session(multiplexed=True, retries=retry, headers=ua) as s,
             self.overall_progress_bar() as overall_progress,
