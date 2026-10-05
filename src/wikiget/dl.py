@@ -25,6 +25,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import timedelta
 from functools import partial
 import hashlib
+from itertools import batched
 import logging
 from pathlib import Path
 import signal
@@ -32,8 +33,8 @@ from threading import Event, Lock
 from types import FrameType
 from urllib.parse import unquote, urlparse
 
-from mwclient import APIError, InvalidResponse, LoginError, Site
-from requests import ConnectionError, HTTPError
+from more_itertools import quantify
+import niquests
 from rich.console import Console
 from rich.progress import (
     BarColumn,
@@ -48,10 +49,11 @@ from rich.progress import (
     TransferSpeedColumn,
 )
 
+from wikiget import USER_AGENT
 from wikiget.exceptions import ParseError
 from wikiget.file import File
 from wikiget.logging import FileLogAdapter
-from wikiget.parse import get_dest, batch_files, batch_size
+from wikiget.parse import batch_files, batch_size
 from wikiget.validations import Validator
 
 logger = logging.getLogger(__name__)
@@ -68,12 +70,9 @@ class Downloader:
         self.input = self.args.FILE
         self.output = self.args.output
         self.force_redownload = self.args.force
-        self.batch_mode = self.args.batch
-        self.thread_count = self.args.threads
+        self.concurrency = self.args.threads
         self.dry_run = self.args.dry_run
 
-        self.sites: dict[str, Site] = {}
-        self.sites_lock = Lock()
         self.console = Console()
 
         self.status = Counter({
@@ -162,7 +161,7 @@ class Downloader:
         :return: a File object representing the file to download
         :rtype: wikiget.file.File
         """
-        file = get_dest(dl, self.args)
+        file = self.get_dest(dl)
 
         # check if the destination file already exists; don't overwrite unless the user says
         if file.dest.is_file() and file.dest.stat().st_size != 0 and not self.force_redownload:
@@ -218,17 +217,42 @@ class Downloader:
         :rtype: int
         """
 
-        # TODO: Create session here?
-        if self.batch_mode:
-            # batch download mode
+        # Setup auto-retry, as we're very likely to hit 429 on the way...
+        # c.f., https://www.mediawiki.org/wiki/Wikimedia_APIs/Rate_limits
+        # NOTE: We *could* also add a rate limiter on *our* end here, if need be,
+        #       c.f., https://niquests.readthedocs.io/en/latest/user/advanced.html#rate-limiting
+        retry = niquests.RetryConfiguration(
+            total=10,
+            # NOTE: CommonsDownloadTool also attempts to retry on 403, which is... weird?
+            status_forcelist=[429, 500, 502, 503, 504],
+            backoff_factor=5,
+            backoff_max=30,
+            backoff_jitter=0.5,
+            respect_retry_after_header=True,
+        )
 
-            # Display an outer progress bar that tracks prgress over the full batch
-            with self.overall_progress_bar() as overall_progress:
-                self.threaded_download(overall_progress) if self.thread_count > 1 else self.batched_download(overall_progress)
-        else:
-            # single download mode
-            with self.progress_bar() as progress:
-                self.status = self.download_pipeline(1, self.input, progress)
+        # Setup our UA
+        ua = {"user-agent": USER_AGENT}
+
+        # FIXME: Switch to base_url?
+        with (
+            niquests.Session(multiplexed=True, retries=retry, headers=ua) as s,
+            self.overall_progress_bar() as overall_progress,
+            self.progress_bar() as progress,
+        ):
+            overall_task = overall_progress.add_task("Download...", total=batch_size(self.input))
+            for batch in batched(batch_files(self.input), self.concurrency):
+                downloads = {line: self.query_filename(line, filename) for line, filename in batch}
+                responses = {file: s.get(file.url, stream=True) for file in downloads.values() if file}
+
+                # Advance progress bar for lines where query_filename failed
+                # NOTE: Or, well, len(responses) - len(downloads)...
+                overall_progress.advance(overall_task, advance=quantify(downloads.values(), pred=lambda e: e is None))
+
+                s.gather(*responses.values())
+                for file, r in responses.items():
+                    self.process_response(r, file, progress)
+                    overall_progress.advance(overall_task)
 
         errors, warnings = self.errors(), self.warnings()
         if errors or warnings:
@@ -244,216 +268,129 @@ class Downloader:
         # even if some downloads completed successfully
         return 1 if errors else 0
 
-
-    def batched_download(self, overall_progress: Progress) -> None:
-        """Download files specified in a batch file.
-
-        The batch file is parsed as we go, and files are checked
-        for validity before being downloaded one by one.
-        """
-
-        overall_task = overall_progress.add_task("Batched download", total=batch_size(self.input))
-        with self.progress_bar() as progress:
-            for line_num, line in batch_files(self.input):
-                self.status.update(self.download_pipeline(line_num, line, progress))
-                overall_progress.advance(overall_task)
-
-
-    def threaded_download(self, overall_progress: Progress) -> None:
-        """Download files specified in a batch file.
-
-        The batch file is parsed into a dictionary, and the dictionary's items are checked
-        for validity before being downloaded using a ThreadPool for simultaneous downloads,
-        if threading was specified on the command line.
-        """
-
-        overall_task = overall_progress.add_task("Threaded download", total=batch_size(self.input))
-        with (
-            self.progress_bar() as progress,
-            ThreadPoolExecutor(max_workers=self.thread_count) as executor,
-        ):
-            futures = (
-                executor.submit(self.download_pipeline, line_num, line, progress)
-                for line_num, line in batch_files(self.input)
-            )
-            # wait for downloads to finish
-            for future in as_completed(futures):
-                self.status.update(future.result())
-                overall_progress.advance(overall_task)
-
-                # Abort early on SIGINT
-                if self.done_event.is_set():
-                    executor.shutdown(wait=False, cancel_futures=True)
-                    break
-
-
-    def query_filename(self, line_num: int, line: str) -> tuple[Counter, File | None]:
+    def query_filename(self, line_num: int, line: str) -> File | None:
         """Prepare a download and query Commons for the canonical download URL
 
         Returns a File instance on success or None on failure.
         """
 
-        status = Counter()
-
         logger.info("Processing '%s' at line %i", line, line_num)
         try:
             file = self.prep_download(line)
-            # Make sure concurrent threads won't attempt to connect to the same site
-            with self.sites_lock:
-                site = self.sites.get(file.site, None)
-
-                # if there's already a Site object matching the desired host,
-                # reuse it to reduce the number of API calls made per file
-                if site:
-                    logger.debug("Reusing the existing connection to %s", site.host)
-                else:
-                    logger.debug("Making a new connection to %s", file.site)
-                    site = connect_to_site(file.site, self.args)
-                    # cache the new Site for reuse
-                    self.sites[site.host] = site
-            file.image = query_api(file.name, site)
         except ParseError as e:
             logger.error("%s (line %i)", str(e), line_num)
-            self.increment_errors(status)
+            self.increment_errors(self.status)
             file = None
         except FileExistsError as e:
             logger.warning(e)
-            self.increment_warnings(status)
-            file = None
-        except (ConnectionError, HTTPError, InvalidResponse, LoginError, APIError):
-            logger.error(
-                "Unable to download '%s' (line %i) due to an API query error",
-                line,
-                line_num,
-            )
-            self.increment_errors(status)
+            self.increment_warnings(self.status)
             file = None
 
-        return status, file
+        return file
 
-
-    def download(self, f: File, progress: Progress, task: TaskID) -> Counter:
+    def process_response(self, r: niquests.Response, f: File, progress: Progress) -> Counter:
         """Fetch file information and contents if the file exists and save it to disk.
-
-        :param f: a File object representing the file to be downloaded
-        :type f: wikiget.file.File
-        :param args: command-line arguments and their values
-        :type args: argparse.Namespace
-        :return: count of errors and warnings encountered during processing
-        :rtype: Counter
         """
-        file = f.image
         filename = f.name
         dest = f.dest
-        site = file.site
+        file_size = r.headers.get("content-length", 0)
 
         status = Counter()
 
         # prepend the current filename to all log messages
         adapter = FileLogAdapter(logger, {"filename": filename})
 
-        if file.imageinfo:
-            # file exists either locally or at a common repository, like Wikimedia Commons
-            file_url = file.imageinfo["url"]
-            file_size = file.imageinfo["size"]
-            file_sha1 = file.imageinfo["sha1"]
+        filename_log = f"Downloading '{filename}' ({file_size} bytes) from {site.host}"
+        if self.output:
+            filename_log += f" to '{dest}'"
+        adapter.info(filename_log)
+        adapter.info(f"{file_url}")
 
-            filename_log = f"Downloading '{filename}' ({file_size} bytes) from {site.host}"
-            if self.output:
-                filename_log += f" to '{dest}'"
-            adapter.info(filename_log)
-            adapter.info(f"{file_url}")
+        if self.dry_run:
+            adapter.warning("Dry run; download skipped")
+            return status
 
-            if self.dry_run:
-                adapter.warning("Dry run; download skipped")
-                return status
+        try:
+            progress.update(task, total=file_size)
+            with dest.open("wb") as fd:
+                progress.start_task(task)
+                # NOTE: Strong urge to also fork mwclient and just import niquests as requests...
+                #       That would require also wrapping that iter_content in a context manager.
+                # download the file using the existing Site session
+                r = site.connection.get(file_url, stream=True)
 
-            try:
-                progress.update(task, total=file_size)
-                with dest.open("wb") as fd:
-                    progress.start_task(task)
-                    # NOTE: Strong urge to also fork mwclient and just import niquests as requests...
-                    #       That would require also wrapping that iter_content in a context manager.
-                    # download the file using the existing Site session
-                    r = site.connection.get(file_url, stream=True)
+                # Minimal error handling
+                try:
+                    # NOTE: On r.status_code == requests.codes.ok (i.e., 200),
+                    #       raise_for_status will return:
+                    #       None with requests
+                    #       r with niquests
+                    r.raise_for_status()
+                except HTTPError as e:
+                    adapter.error(f"File could not be downloaded: {e}")
+                    dest.unlink()
+                    self.increment_errors(status)
+                    progress.console.log(f"[bold red]FAILED[/] to download [bold magenta]{filename}[/]")
+                    return status
 
-                    # Minimal error handling
-                    try:
-                        # NOTE: On r.status_code == requests.codes.ok (i.e., 200),
-                        #       raise_for_status will return:
-                        #       None with requests
-                        #       r with niquests
-                        r.raise_for_status()
-                    except HTTPError as e:
-                        adapter.error(f"File could not be downloaded: {e}")
+                for chunk in r.iter_content(None):
+                    fd.write(chunk)
+                    progress.update(task, advance=len(chunk))
+
+                    # Clean up on SIGINT, so we don't leave incomplete files around
+                    if self.done_event.is_set():
+                        adapter.error("Caught a SIGINT, aborting")
                         dest.unlink()
-                        self.increment_errors(status)
-                        progress.console.log(f"[bold red]FAILED[/] to download [bold magenta]{filename}[/]")
+                        progress.remove_task(task)
+                        progress.console.log(f"[bold red]Aborted[/] [bold magenta]{filename}[/] download")
                         return status
 
-                    for chunk in r.iter_content(None):
-                        fd.write(chunk)
-                        progress.update(task, advance=len(chunk))
-
-                        # Clean up on SIGINT, so we don't leave incomplete files around
-                        if self.done_event.is_set():
-                            adapter.error("Caught a SIGINT, aborting")
-                            dest.unlink()
-                            progress.remove_task(task)
-                            progress.console.log(f"[bold red]Aborted[/] [bold magenta]{filename}[/] download")
-                            return status
-
-                    # Pull the elapsed time for our task out of rich's guts...
-                    t = progress._tasks[task]
-                    elapsed = t.finished_time if t.finished else t.elapsed
-                    if elapsed is None:
-                        delta = "?"
-                    else:
-                        # NOTE: Its str dunder will do the formatting for us :)
-                        delta = timedelta(seconds=max(0, round(elapsed)))
-                    progress.console.log(f"Downloaded [bold magenta]{filename}[/] in [bold yellow]{delta}[/]")
-            except OSError as e:
-                adapter.error(f"File could not be written: {e}")
-                dest.unlink(missing_ok=True)
-                progress.remove_task(task)
-                self.increment_errors(status)
-                progress.console.log(f"[bold red]FAILED[/] to write local file for [bold magenta]{filename}[/]")
-                return status
-
-            # verify file integrity and log the details
-            try:
-                dl_sha1 = verify_hash(dest)
-            except OSError as e:
-                adapter.error(f"File downloaded but could not be verified: {e}")
-                dest.unlink()
-                progress.remove_task(task)
-                self.increment_errors(status)
-                progress.console.log(f"[bold red]FAILED[/] to verify downloaded [bold magenta]{filename}[/]")
-                return status
-
-            adapter.info(f"Remote file SHA1 is {file_sha1}")
-            adapter.info(f"Local file SHA1 is {dl_sha1}")
-            if dl_sha1 == file_sha1:
-                adapter.info("Hashes match!")
-                # at this point, we've successfully downloaded the file
-                success_log = f"'{filename}' downloaded"
-                if self.output:
-                    success_log += f" to '{dest}'"
-                adapter.info(success_log)
-            else:
-                adapter.error("Hash mismatch! Downloaded file may be corrupt.")
-                dest.unlink()
-                self.increment_errors(status)
-                progress.console.log(f"[bold red]CORRUPT[/] download for [bold magenta]{filename}[/]")
-
-            # NOTE: A single Progress instance will only ever show as much tasks as the terminal height allows...
-            #       Drop completed tasks to free up space.
+                # Pull the elapsed time for our task out of rich's guts...
+                t = progress._tasks[task]
+                elapsed = t.finished_time if t.finished else t.elapsed
+                if elapsed is None:
+                    delta = "?"
+                else:
+                    # NOTE: Its str dunder will do the formatting for us :)
+                    delta = timedelta(seconds=max(0, round(elapsed)))
+                progress.console.log(f"Downloaded [bold magenta]{filename}[/] in [bold yellow]{delta}[/]")
+        except OSError as e:
+            adapter.error(f"File could not be written: {e}")
+            dest.unlink(missing_ok=True)
             progress.remove_task(task)
+            self.increment_errors(status)
+            progress.console.log(f"[bold red]FAILED[/] to write local file for [bold magenta]{filename}[/]")
+            return status
 
+        # verify file integrity and log the details
+        try:
+            dl_sha1 = verify_hash(dest)
+        except OSError as e:
+            adapter.error(f"File downloaded but could not be verified: {e}")
+            dest.unlink()
+            progress.remove_task(task)
+            self.increment_errors(status)
+            progress.console.log(f"[bold red]FAILED[/] to verify downloaded [bold magenta]{filename}[/]")
+            return status
+
+        adapter.info(f"Remote file SHA1 is {file_sha1}")
+        adapter.info(f"Local file SHA1 is {dl_sha1}")
+        if dl_sha1 == file_sha1:
+            adapter.info("Hashes match!")
+            # at this point, we've successfully downloaded the file
+            success_log = f"'{filename}' downloaded"
+            if self.output:
+                success_log += f" to '{dest}'"
+            adapter.info(success_log)
         else:
-            # no file information returned
-            adapter.warning("Target does not appear to be a valid file")
-            self.increment_warnings(status)
+            adapter.error("Hash mismatch! Downloaded file may be corrupt.")
+            dest.unlink()
+            self.increment_errors(status)
+            progress.console.log(f"[bold red]CORRUPT[/] download for [bold magenta]{filename}[/]")
+
+        # NOTE: A single Progress instance will only ever show as much tasks as the terminal height allows...
+        #       Drop completed tasks to free up space.
+        progress.remove_task(task)
 
         return status
 

@@ -39,16 +39,16 @@ Examples::
 
 """
 
-from mwclient import __version__ as mwclient_version
+from niquests import __version__ as niquests_version
 
 from wikiget.version import __version__
 
-# set some global constants
-DEFAULT_SITE = "commons.wikimedia.org"
-DEFAULT_PATH = "/w/"
+# Set some global constants
 USER_AGENT = (
     f"wikiget/{__version__} (https://github.com/NiLuJe/wikiget) "
-    f"mwclient/{mwclient_version}"
+    f"niquests/{niquests_version}"
 )
+# -v
 STD_VERBOSE = 1
+# -vv
 VERY_VERBOSE = 2
