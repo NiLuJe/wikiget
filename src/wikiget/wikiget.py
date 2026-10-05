@@ -113,7 +113,7 @@ flags = Group(
 @app.default
 def cli(
     input: Path | str,
-    output: Annotated[Path, Parameter(validator=validators.Path(dir_okay=True, file_okay=False))],
+    output: Directory,
     logfile: Path,
     quiet: Annotated[bool, Parameter(group=verbosity)] = False,
     verbose: Annotated[bool, Parameter(group=verbosity)] = False,
