@@ -105,6 +105,37 @@ class Downloader:
         self.done_event.set()
         self.console.log("Caught a [bold red]SIGINT[/], tearing down pending tasks...")
 
+    def overall_progress_bar(self) -> Progress:
+        """Return a rich.progress Progress instance laid out for overall progress"""
+
+        return Progress(
+            SpinnerColumn(),
+            TextColumn("[bold white][progress.description]{task.description}"),
+            BarColumn(bar_width=None),
+            TaskProgressColumn(),
+            "•",
+            TimeRemainingColumn(elapsed_when_finished=False),
+            TimeElapsedColumn(),
+            console=self.console,
+        )
+
+    def progress_bar(self) -> Progress:
+        """Return a rich.progress Progress instance laid out for our individual downloads"""
+
+        return Progress(
+            TextColumn("[bold blue]{task.fields[filename]}", justify="right"),
+            BarColumn(bar_width=None),
+            "[progress.percentage]{task.percentage:>3.1f}%",
+            "•",
+            DownloadColumn(binary_units=True),
+            "•",
+            # Unlikely to have time to update, given our small file sizes
+            TransferSpeedColumn(),
+            "•",
+            TimeRemainingColumn(elapsed_when_finished=True),
+            console=self.console,
+        )
+
     def get_commons_url(self, filename: str) -> str:
         # c.f., https://commons.wikimedia.org/wiki/Commons:FAQ#What_are_the_strangely_named_components_in_file_paths?
         # Heavily inspired from CommonsDownloadTool's commons_file_url, c.f.,
@@ -121,7 +152,7 @@ class Downloader:
 
         return f"{self.commons_base_url}/{file_path}"
 
-    def get_dest(self, dl: str) -> File:
+    def get_file_info(self, dl: str) -> File:
         # First, check if the input isn't already a proper URL
         url = urlparse(dl)
 
@@ -161,7 +192,7 @@ class Downloader:
         :return: a File object representing the file to download
         :rtype: wikiget.file.File
         """
-        file = self.get_dest(dl)
+        file = self.get_file_info(dl)
 
         # check if the destination file already exists; don't overwrite unless the user says
         if file.dest.is_file() and file.dest.stat().st_size != 0 and not self.force_redownload:
@@ -169,38 +200,6 @@ class Downloader:
             raise FileExistsError(msg)
 
         return file
-
-    def overall_progress_bar(self) -> Progress:
-        """Return a rich.progress Progress instance laid out for overall progress"""
-
-        return Progress(
-            SpinnerColumn(),
-            TextColumn("[bold white][progress.description]{task.description}"),
-            BarColumn(bar_width=None),
-            TaskProgressColumn(),
-            "•",
-            TimeRemainingColumn(elapsed_when_finished=False),
-            TimeElapsedColumn(),
-            console=self.console,
-        )
-
-    def progress_bar(self) -> Progress:
-        """Return a rich.progress Progress instance laid out for our individual downloads"""
-
-        return Progress(
-            TextColumn("[bold blue]{task.fields[filename]}", justify="right"),
-            BarColumn(bar_width=None),
-            "[progress.percentage]{task.percentage:>3.1f}%",
-            "•",
-            DownloadColumn(binary_units=True),
-            "•",
-            # Unlikely to have time to update, given our small file sizes
-            TransferSpeedColumn(),
-            "•",
-            TimeRemainingColumn(elapsed_when_finished=True),
-            console=self.console,
-        )
-
 
     def process_download(self) -> int:
         """Process the download target given in the CLI args as a single file or batch file.
@@ -242,6 +241,10 @@ class Downloader:
         ):
             overall_task = overall_progress.add_task("Download...", total=batch_size(self.input))
             for batch in batched(batch_files(self.input), self.concurrency):
+                # Abort early w/o inflating the error count if we caught a SIGINT
+                if self.done_event.is_set():
+                    break
+
                 downloads = {line: self.query_filename(line, filename) for line, filename in batch}
                 responses = {file: s.get(file.url, stream=True) for file in downloads.values() if file}
 
@@ -251,8 +254,14 @@ class Downloader:
 
                 s.gather(*responses.values())
                 for file, r in responses.items():
-                    self.process_response(r, file, progress)
-                    overall_progress.advance(overall_task)
+                    try:
+                        task = self.process_response(r, file, progress)
+                    finally:
+                        r.close()
+                        # NOTE: A single Progress instance will only ever show as much tasks as the terminal height allows...
+                        #       Drop completed tasks to free up space.
+                        task and progress.remove_task(task)
+                        overall_progress.advance(overall_task)
 
         errors, warnings = self.errors(), self.warnings()
         if errors or warnings:
@@ -288,19 +297,20 @@ class Downloader:
 
         return file
 
-    def process_response(self, r: niquests.Response, f: File, progress: Progress) -> Counter:
+    def process_response(self, r: niquests.Response, f: File, progress: Progress) -> TaskID | None:
         """Fetch file information and contents if the file exists and save it to disk.
         """
         filename = f.name
         dest = f.dest
-        file_size = r.headers.get("content-length", 0)
-
-        status = Counter()
+        file_url = f.url
+        file_size = int(r.headers.get("content-length", 0)) # int(str(r.oheaders.content_length))
+        # Poor man's hash check, MD5
+        file_hash = str(r.oheaders.etag)
 
         # prepend the current filename to all log messages
         adapter = FileLogAdapter(logger, {"filename": filename})
 
-        filename_log = f"Downloading '{filename}' ({file_size} bytes) from {site.host}"
+        filename_log = f"Downloading '{filename}' ({file_size} bytes)"
         if self.output:
             filename_log += f" to '{dest}'"
         adapter.info(filename_log)
@@ -308,17 +318,13 @@ class Downloader:
 
         if self.dry_run:
             adapter.warning("Dry run; download skipped")
-            return status
+            return None
 
+        task = progress.add_task("download", filename=str(dest), total=None, start=False)
         try:
             progress.update(task, total=file_size)
             with dest.open("wb") as fd:
                 progress.start_task(task)
-                # NOTE: Strong urge to also fork mwclient and just import niquests as requests...
-                #       That would require also wrapping that iter_content in a context manager.
-                # download the file using the existing Site session
-                r = site.connection.get(file_url, stream=True)
-
                 # Minimal error handling
                 try:
                     # NOTE: On r.status_code == requests.codes.ok (i.e., 200),
@@ -326,14 +332,14 @@ class Downloader:
                     #       None with requests
                     #       r with niquests
                     r.raise_for_status()
-                except HTTPError as e:
+                except niquests.HTTPError as e:
                     adapter.error(f"File could not be downloaded: {e}")
                     dest.unlink()
-                    self.increment_errors(status)
+                    self.increment_errors(self.status)
                     progress.console.log(f"[bold red]FAILED[/] to download [bold magenta]{filename}[/]")
-                    return status
+                    return task
 
-                for chunk in r.iter_content(None):
+                for chunk in r.iter_content():
                     fd.write(chunk)
                     progress.update(task, advance=len(chunk))
 
@@ -341,9 +347,8 @@ class Downloader:
                     if self.done_event.is_set():
                         adapter.error("Caught a SIGINT, aborting")
                         dest.unlink()
-                        progress.remove_task(task)
                         progress.console.log(f"[bold red]Aborted[/] [bold magenta]{filename}[/] download")
-                        return status
+                        return task
 
                 # Pull the elapsed time for our task out of rich's guts...
                 t = progress._tasks[task]
@@ -357,25 +362,23 @@ class Downloader:
         except OSError as e:
             adapter.error(f"File could not be written: {e}")
             dest.unlink(missing_ok=True)
-            progress.remove_task(task)
-            self.increment_errors(status)
+            self.increment_errors(self.status)
             progress.console.log(f"[bold red]FAILED[/] to write local file for [bold magenta]{filename}[/]")
-            return status
+            return task
 
-        # verify file integrity and log the details
+        # Verify file integrity and log the details
         try:
-            dl_sha1 = verify_hash(dest)
+            dl_hash = self.validate.hash(dest)
         except OSError as e:
             adapter.error(f"File downloaded but could not be verified: {e}")
             dest.unlink()
-            progress.remove_task(task)
-            self.increment_errors(status)
+            self.increment_errors(self.status)
             progress.console.log(f"[bold red]FAILED[/] to verify downloaded [bold magenta]{filename}[/]")
-            return status
+            return task
 
-        adapter.info(f"Remote file SHA1 is {file_sha1}")
-        adapter.info(f"Local file SHA1 is {dl_sha1}")
-        if dl_sha1 == file_sha1:
+        adapter.info(f"Remote file hash is {file_hash}")
+        adapter.info(f"Local file hash is {dl_hash}")
+        if dl_hash == file_hash:
             adapter.info("Hashes match!")
             # at this point, we've successfully downloaded the file
             success_log = f"'{filename}' downloaded"
@@ -385,34 +388,7 @@ class Downloader:
         else:
             adapter.error("Hash mismatch! Downloaded file may be corrupt.")
             dest.unlink()
-            self.increment_errors(status)
+            self.increment_errors(self.status)
             progress.console.log(f"[bold red]CORRUPT[/] download for [bold magenta]{filename}[/]")
 
-        # NOTE: A single Progress instance will only ever show as much tasks as the terminal height allows...
-        #       Drop completed tasks to free up space.
-        progress.remove_task(task)
-
-        return status
-
-
-    def download_pipeline(self, line_num: int, line: str, progress: Progress) -> Counter:
-        """Full download pipeline, from API query, to progress handling, to actual download.
-
-           Returns the number of errors encountered.
-        """
-
-        status = Counter()
-
-        # Abort early w/o inflating the error count if we caught a SIGINT
-        if self.done_event.is_set():
-            return status
-
-        status, file = self.query_filename(line_num, line)
-
-        if not file:
-            return status
-
-        task = progress.add_task("download", filename=str(file.dest), total=None, start=False)
-        status.update(self.download(file, progress, task))
-
-        return status
+        return task

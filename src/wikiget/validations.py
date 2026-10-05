@@ -66,7 +66,7 @@ class Validator:
         return self.site_re.search(search_string)
 
 
-    def verify_hash(self, file: Path) -> str:
+    def hash(self, file: Path) -> str:
         """Calculate the MD5 hash of the given file for comparison with a known value.
 
         :param filename: name of the file to calculate a hash for
