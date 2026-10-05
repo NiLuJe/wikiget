@@ -262,7 +262,10 @@ class Downloader:
                         # NOTE: A single Progress instance will only ever show as much tasks as the terminal height allows...
                         #       Drop completed tasks to free up space.
                         if task:
-                            progress.remove_task(task)
+                            try:
+                                progress.remove_task(task)
+                            except KeyError:
+                                pass
                         overall_progress.advance(overall_task)
 
         errors, warnings = self.errors(), self.warnings()
