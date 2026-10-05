@@ -44,7 +44,6 @@ from mwclient import __version__ as mwclient_version
 from wikiget.version import __version__
 
 # set some global constants
-BLOCKSIZE = 65536
 DEFAULT_SITE = "commons.wikimedia.org"
 DEFAULT_PATH = "/w/"
 USER_AGENT = (

@@ -48,7 +48,7 @@ from wikiget.client import connect_to_site, query_api
 from wikiget.exceptions import ParseError
 from wikiget.logging import FileLogAdapter
 from wikiget.parse import get_dest, batch_files, batch_size
-from wikiget.validations import verify_hash
+from wikiget.validations import Validator
 
 from argparse import Namespace
 from wikiget.file import File
@@ -79,6 +79,8 @@ class Downloader:
             "errors": 0,
             "warnings": 0,
         })
+
+        self.validator = Validator()
 
         # And install our SIGINT handler
         self.done_event = Event()
