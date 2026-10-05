@@ -253,6 +253,7 @@ class Downloader:
                 # NOTE: Or, well, len(responses) - len(downloads)...
                 overall_progress.advance(overall_task, advance=quantify(downloads.values(), pred=lambda e: e is None))
 
+                # FIXME: Create task early so that the elapsed time accounts for retries...
                 s.gather(*responses.values())
                 for file, r in responses.items():
                     try:
