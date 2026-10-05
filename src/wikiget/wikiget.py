@@ -100,8 +100,13 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
 verbosity = Group(
     "Verbosity",
-    default_parameter=Parameter(negative=""),
+    default_parameter=Parameter(negative="", show_default=False),
     validator=validators.MutuallyExclusive(),
+)
+
+# No negatives, and no default values shown for store_true flags
+flags = Group(
+    default_parameter=Parameter(negative="", show_default=False),
 )
 
 @app.default
@@ -111,9 +116,9 @@ def cli(
     logfile: Path,
     quiet: Annotated[bool, Parameter(group=verbosity)] = False,
     verbose: Annotated[bool, Parameter(group=verbosity)] = False,
-    force: Annotated[bool, Parameter(negative="")] = False,
-    batch: Annotated[bool, Parameter(negative="")] = False,
-    dry_run: Annotated[bool, Parameter(alias="-n", negative="")] = False,
+    force: Annotated[bool, Parameter(group=flags)] = False,
+    batch: Annotated[bool, Parameter(group=flags)] = False,
+    dry_run: Annotated[bool, Parameter(alias="-n", group=flags)] = False,
     concurrency: Annotated[int, Parameter(alias="-j")] = 3,
 ) -> int:
     """Download files from Wikimedia Commons
