@@ -33,7 +33,6 @@ from types import FrameType
 from typing import Any
 from urllib.parse import unquote, urlparse
 
-from more_itertools import quantify
 import niquests
 from rich.console import Console
 from rich.progress import (
@@ -248,25 +247,26 @@ class Downloader:
 
                 downloads = {line: self.query_filename(line, filename) for line, filename in batch}
                 responses = {file: s.get(file.url, stream=True) for file in downloads.values() if file}
+                # Start tasks ASAP so we get an accurate elapsed time
+                tasks = {
+                    file: progress.add_task("download", filename=str(file.dest), total=None)
+                    for file in downloads.values()
+                    if file and file.dest
+                }
 
                 # Advance progress bar for lines where query_filename failed
-                # NOTE: Or, well, len(responses) - len(downloads)...
-                overall_progress.advance(overall_task, advance=quantify(downloads.values(), pred=lambda e: e is None))
+                overall_progress.advance(overall_task, advance=len(downloads) - len(responses))
 
-                # FIXME: Create task early so that the elapsed time accounts for retries...
                 s.gather(*responses.values())
                 for file, r in responses.items():
+                    task = tasks[file]
                     try:
-                        task = self.process_response(r, file, progress)
+                        self.process_response(r, file, progress, task)
                     finally:
                         r.close()
                         # NOTE: A single Progress instance will only ever show as much tasks as the terminal height allows...
                         #       Drop completed tasks to free up space.
-                        if task:
-                            try:
-                                progress.remove_task(task)
-                            except KeyError:
-                                pass
+                        progress.remove_task(task)
                         overall_progress.advance(overall_task)
 
         errors, warnings = self.errors(), self.warnings()
@@ -303,7 +303,7 @@ class Downloader:
 
         return file
 
-    def process_response(self, r: niquests.Response, f: File, progress: Progress) -> TaskID | None:
+    def process_response(self, r: niquests.Response, f: File, progress: Progress, task: TaskID) -> None:
         """Fetch file information and contents if the file exists and save it to disk."""
 
         filename = f.name
@@ -323,7 +323,7 @@ class Downloader:
             progress.console.log(
                 f"[bold red]FAILED[/] to download [bold magenta]{filename}[/] ([bold yellow]{r.status_code}[/])"
             )
-            return None
+            return
 
         dest = f.dest
         file_url = f.url
@@ -339,13 +339,11 @@ class Downloader:
 
         if self.dry_run:
             adapter.warning("Dry run; download skipped")
-            return None
+            return
 
-        task = progress.add_task("download", filename=str(dest), total=None, start=False)
         try:
             progress.update(task, total=file_size)
             with dest.open("wb") as fd:
-                progress.start_task(task)
                 for chunk in r.iter_content():
                     fd.write(chunk)
                     progress.update(task, advance=len(chunk))
@@ -355,7 +353,7 @@ class Downloader:
                         adapter.error("Caught a SIGINT, aborting")
                         dest.unlink()
                         progress.console.log(f"[bold red]Aborted[/] [bold magenta]{filename}[/] download")
-                        return task
+                        return
 
                 # Pull the elapsed time for our task out of rich's guts...
                 t = progress._tasks[task]
@@ -371,7 +369,7 @@ class Downloader:
             dest.unlink(missing_ok=True)
             self.increment_errors()
             progress.console.log(f"[bold red]FAILED[/] to write local file for [bold magenta]{filename}[/]")
-            return task
+            return
 
         # Verify file integrity and log the details
         try:
@@ -381,7 +379,7 @@ class Downloader:
             dest.unlink()
             self.increment_errors()
             progress.console.log(f"[bold red]FAILED[/] to verify downloaded [bold magenta]{filename}[/]")
-            return task
+            return
 
         adapter.info(f"Remote file hash is {file_hash}")
         adapter.info(f"Local file hash is {dl_hash}")
@@ -398,4 +396,4 @@ class Downloader:
             self.increment_errors()
             progress.console.log(f"[bold red]CORRUPT[/] download for [bold magenta]{filename}[/]")
 
-        return task
+        return

@@ -22,6 +22,7 @@ from __future__ import annotations
 from pathlib import Path
 
 
+# FIXME: refactor that a bit once we move to cyclopts...
 class File:
     """A file object."""
 
