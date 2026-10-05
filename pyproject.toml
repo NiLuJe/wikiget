@@ -33,6 +33,7 @@ classifiers = [
 keywords = ["commons", "mediawiki", "wikimedia", "wikipedia"]
 license = {text = "GPL-3.0-or-later"}
 dependencies = [
+  "cyclopts>=5.1.1",
   "more-itertools>=11.1.0",
   "niquests[speedups]>=3.21.2",
   "rich>=15.0.0",

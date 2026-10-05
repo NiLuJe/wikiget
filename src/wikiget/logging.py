@@ -23,7 +23,7 @@ from collections.abc import MutableMapping
 import logging
 from typing import Any
 
-import wikiget
+from . import STD_VERBOSE, VERY_VERBOSE
 
 
 class FileLogAdapter(logging.LoggerAdapter[logging.Logger]):
@@ -44,10 +44,10 @@ def configure_logging(verbosity: int, logfile: str, *, quiet: bool) -> None:
     :type quiet: bool
     """
     loglevel = logging.WARNING  # default log level
-    if verbosity >= wikiget.VERY_VERBOSE:
+    if verbosity >= VERY_VERBOSE:
         # this includes API and library messages, not just from wikiget
         loglevel = logging.DEBUG
-    elif verbosity >= wikiget.STD_VERBOSE:
+    elif verbosity >= STD_VERBOSE:
         loglevel = logging.INFO
     elif quiet:
         loglevel = logging.ERROR

@@ -22,12 +22,17 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+from pathlib import Path
 import sys
 
-import wikiget
-from wikiget.dl import Downloader
-from wikiget.logging import configure_logging
+from cyclopts import App
+from . import USER_AGENT
+from . import __version__ as WIKIGET_VERSION
+from .dl import Downloader
+from .logging import configure_logging
 
+
+app = App(help="Help string for this demo application.")
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
     """Parse the given argument list.
@@ -56,12 +61,6 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         name of the file to download, with the File: prefix, or the URL of its file
         description page
         """,
-    )
-    parser.add_argument(
-        "-V",
-        "--version",
-        action="version",
-        version=f"%(prog)s {wikiget.__version__}",
     )
     message_options = parser.add_mutually_exclusive_group()
     message_options.add_argument("-q", "--quiet", help="suppress warning messages", action="store_true")
@@ -99,9 +98,52 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def cli() -> int:
-    """Set up the command-line environment and start the download process."""
-    args = parse_args(sys.argv[1:])
+@app.command
+def cli(
+    input: Path | str,
+    output: Path,
+    quiet: bool,
+    verbose: bool,
+    force: bool,
+    batch: bool,
+    dry_run: bool,
+    logfile: Path,
+    concurrency: int = 3,
+) -> int:
+    """Download files from Wikimedia Commons
+
+    Parameters
+    ----------
+    input
+        Name of the file to download, with the File: prefix;
+        or the URL of its file description page.
+    output
+        Path in which to store the downloaded files.
+    quiet
+        Suppress warning messages.
+    verbose
+        Print detailed information;
+        pass it twice for even more detail.
+    force
+        Overwrite existing files in case of conflicts.
+    batch
+        Treat input as a text file containing one entry per line,
+        in the same format as input would otherwise expect.
+    dry_run
+        Process the input it stop short of actually downloading anything.
+    logfile
+        Path in which to store the log output.
+    concurrency
+        Amount of downloads to start in parallel.
+        You should probably not need to modify this,
+        but if you do, check Wikimedia's current policies at
+        https://www.mediawiki.org/wiki/Wikimedia_APIs/Rate_limits
+        first.
+    """
+
+    # TODO: Actually handle input being a str and not stdin?
+    return 0
+
     configure_logging(verbosity=args.verbose, logfile=args.logfile, quiet=args.quiet)
 
     logger = logging.getLogger(__name__)
@@ -113,8 +155,8 @@ def cli() -> int:
 
     # log events are appended to the file if it already exists, so note the start of a
     # new download session
-    logger.info("Starting download session using wikiget %s", wikiget.__version__)
-    logger.debug("User agent: %s", wikiget.USER_AGENT)
+    logger.info("Starting download session using wikiget %s", WIKIGET_VERSION)
+    logger.debug("User agent: %s", USER_AGENT)
 
     dl = Downloader(args)
     return dl.process_download()

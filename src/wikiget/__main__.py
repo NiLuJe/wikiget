@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Wikiget. If not, see <https://www.gnu.org/licenses/>.
 
-from wikiget.wikiget import cli  # no cov
+from .wikiget import app
 
 if __name__ == "__main__":
-    raise SystemExit(cli())
+    app()

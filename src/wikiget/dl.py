@@ -48,12 +48,12 @@ from rich.progress import (
     TransferSpeedColumn,
 )
 
-from wikiget import USER_AGENT
-from wikiget.exceptions import ParseError
-from wikiget.file import File
-from wikiget.logging import FileLogAdapter
-from wikiget.parse import batch_files, batch_size
-from wikiget.validations import Validator
+from . import USER_AGENT
+from .exceptions import ParseError
+from .file import File
+from .logging import FileLogAdapter
+from .parse import batch_files, batch_size
+from .validations import Validator
 
 logger = logging.getLogger(__name__)
 
