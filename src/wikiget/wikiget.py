@@ -26,7 +26,7 @@ from pathlib import Path
 import sys
 from typing import Annotated
 
-from cyclopts import App, Parameter
+from cyclopts import App, Group, Parameter, validators
 from . import USER_AGENT
 from . import __version__ as WIKIGET_VERSION
 from .dl import Downloader
@@ -98,17 +98,22 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
     return parser.parse_args(argv)
 
+verbosity = Group(
+    "Verbosity",
+    default_parameter=Parameter(negative=""),
+    validator=validators.MutuallyExclusive(),
+)
 
 @app.default
 def cli(
     input: Path | str,
     output: Path,
-    quiet: bool,
-    verbose: bool,
-    force: bool,
-    batch: bool,
-    dry_run: Annotated[bool, Parameter(alias="-n")],
     logfile: Path,
+    quiet: Annotated[bool, Parameter(group=verbosity)] = False,
+    verbose: Annotated[bool, Parameter(group=verbosity)] = False,
+    force: Annotated[bool, Parameter(negative="")] = False,
+    batch: Annotated[bool, Parameter(negative="")] = False,
+    dry_run: Annotated[bool, Parameter(alias="-n", negative="")] = False,
     concurrency: Annotated[int, Parameter(alias="-j")] = 3,
 ) -> int:
     """Download files from Wikimedia Commons
