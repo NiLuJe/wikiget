@@ -68,7 +68,7 @@ documentation = "https://NiLuJe.github.io/wikiget/"
 homepage = "https://github.com/NiLuJe/wikiget"
 
 [project.scripts]
-wikiget = "wikiget.wikiget:cli"
+wikiget = "wikiget.wikiget:app"
 
 [tool.ty]
 # All rules are enabled as "error" by default; no need to specify unless overriding.
