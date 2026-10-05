@@ -55,7 +55,7 @@ class File:
         """
         if not isinstance(other, File):
             return NotImplemented
-        return self.name == other.name and self.dest == other.dest
+        return self.url == other.url
 
     def __str__(self) -> str:
         """Return a basic string representation of this class, for str().
@@ -71,8 +71,11 @@ class File:
         :return: string form of the class
         :rtype: str
         """
-        attr_list = [self.name, self.dest]
+        attr_list = [self.name, self.dest, self.url]
         return '{}("{}")'.format(
             self.__class__.__name__,
             '", "'.join(map(str, attr_list)),
         )
+
+    def __hash__(self) -> int:
+        return hash(self.url)
