@@ -36,42 +36,6 @@ from wikiget.validations import valid_file
 
 logger = logging.getLogger(__name__)
 
-
-def get_dest(dl: str, args: Namespace) -> File:
-    """Parse the given download target for filename, destination, and site host.
-
-    :param dl: download target (filename or URL)
-    :type dl: str
-    :param args: command-line arguments and their values
-    :type args: argparse.Namespace
-    :raises ParseError: the target was unable to be parsed as a valid file
-    :return: a File object representing the target and destination
-    :rtype: wikiget.file.File
-    """
-    url = urlparse(dl)
-
-    if url.netloc:
-        filename = url.path
-    else:
-        filename = dl
-
-    file_match = valid_file(filename)
-
-    # check if this is a valid file
-    if file_match and file_match.group(1):
-        # has File:/Image: prefix and extension
-        filename = file_match.group(2)
-    else:
-        # no file extension and/or prefix, probably an article
-        msg = f"Could not parse input '{dl}' as a file"
-        raise ParseError(msg)
-
-    filename = Path(unquote(filename))  # remove URL encoding for special characters
-    # FIXME: Drop this once output is already a Path
-    dest = Path(args.output) or filename
-    return File(filename, dest)
-
-
 def batch_size(batch_file: str) -> int:
     """Returns the amount of lines in the input.
     NOTE: This does *NOT* do any kind of validation,
@@ -117,17 +81,3 @@ def batch_files(batch_file: str) -> Iterable[tuple[int, str]]:
             # ignore blank lines and lines starting with "#" (for comments)
             if line_s and not line_s.startswith("#"):
                 yield line_num, line_s
-
-
-def read_batch_file(batch_file: str) -> dict[int, str]:
-    """Parse a batch file or stdin for valid input.
-
-    The contents are returned as a dictionary with line numbers for keys and line
-    contents for values. Any blank lines or lines starting with '#' are skipped.
-
-    :param batch_file: name of the file to parse or "-" for stdin
-    :type batch_file: str
-    :return: a dictionary representation of the input contents
-    :rtype: dict[int, str]
-    """
-    return dict(batch_files(batch_file))

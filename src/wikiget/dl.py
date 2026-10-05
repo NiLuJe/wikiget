@@ -81,7 +81,7 @@ class Downloader:
             "warnings": 0,
         })
 
-        self.validator = Validator()
+        self.validate = Validator()
         self.commons_base_url = "https://upload.wikimedia.org/wikipedia/commons"
 
         # And install our SIGINT handler
@@ -132,7 +132,7 @@ class Downloader:
             filename = dl
 
         # Check if this looks like a valid WikiMedia file
-        file_match = self.validator.valid_file(filename)
+        file_match = self.validate.file(filename)
         if file_match and file_match.group(1):
             # has File:/Image: prefix and extension
             filename = file_match.group(2)
@@ -218,6 +218,7 @@ class Downloader:
         :rtype: int
         """
 
+        # TODO: Create session here?
         if self.batch_mode:
             # batch download mode
 

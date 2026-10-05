@@ -33,7 +33,7 @@ class Validator:
         self.file_re = re.compile(r"(File:|Image:)([^/\r\n\t\f\v]+\.\w+)$", re.I)
         self.site_re = re.compile(r"wiki[mp]edia\.org$", re.I)
 
-    def valid_file(self, search_string: str) -> re.Match | None:
+    def file(self, search_string: str) -> re.Match | None:
         """Determine if the given string contains a valid file name.
 
         A valid file name is a string that begins with 'File:' or 'Image:' (the standard
@@ -49,7 +49,7 @@ class Validator:
         return self.file_re.search(search_string)
 
 
-    def valid_site(self, search_string: str) -> re.Match | None:
+    def site(self, search_string: str) -> re.Match | None:
         """Determine if the given string contains a valid site name.
 
         A valid site name is a string ending with 'wikipedia.org' or 'wikimedia.org'. This
