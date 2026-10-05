@@ -346,7 +346,10 @@ class Downloader:
             with dest.open("wb") as fd:
                 for chunk in r.iter_content():
                     fd.write(chunk)
-                    progress.update(task, advance=len(chunk))
+                    if r.download_progress:
+                        progress.update(task, completed=r.download_progress.total)
+                    else:
+                        progress.update(task, advance=len(chunk))
 
                     # Clean up on SIGINT, so we don't leave incomplete files around
                     if self.done_event.is_set():
