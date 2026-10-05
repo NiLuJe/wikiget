@@ -27,7 +27,7 @@ import sys
 from typing import Annotated
 
 from cyclopts import App, Group, Parameter, validators
-from cyclopts.types import Directory
+from cyclopts.types import Directory, PositiveInt
 from . import USER_AGENT
 from . import __version__ as WIKIGET_VERSION
 from .dl import Downloader
@@ -120,7 +120,7 @@ def cli(
     force: Annotated[bool, Parameter(group=flags)] = False,
     batch: Annotated[bool, Parameter(group=flags)] = False,
     dry_run: Annotated[bool, Parameter(alias="-n", group=flags)] = False,
-    concurrency: Annotated[int, Parameter(alias="-j")] = 3,
+    concurrency: Annotated[PositiveInt, Parameter(alias="-j")] = 3,
 ) -> int:
     """Download files from Wikimedia Commons
 
