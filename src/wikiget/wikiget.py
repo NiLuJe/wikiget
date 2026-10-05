@@ -33,7 +33,7 @@ from .dl import Downloader
 from .logging import configure_logging
 
 
-app = App(help="CLI help for Wikiget")
+app = App(help="CLI help for Wikiget", default_parameter=Parameter(short_alias=True))
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
     """Parse the given argument list.
@@ -102,13 +102,13 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 @app.default
 def cli(
     input: Path | str,
-    output: Annotated[Path, Parameter(alias="-o")],
-    quiet: Annotated[bool, Parameter(alias="-q")],
-    verbose: Annotated[bool, Parameter(alias="-v")],
-    force: Annotated[bool, Parameter(alias="-f")],
-    batch: Annotated[bool, Parameter(alias="-b")],
+    output: Path,
+    quiet: bool,
+    verbose: bool,
+    force: bool,
+    batch: bool,
     dry_run: Annotated[bool, Parameter(alias="-n")],
-    logfile: Annotated[Path, Parameter(alias="-l")],
+    logfile: Path,
     concurrency: Annotated[int, Parameter(alias="-j")] = 3,
 ) -> int:
     """Download files from Wikimedia Commons
