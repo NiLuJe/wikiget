@@ -103,38 +103,38 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 def cli(
     input: Path | str,
     output: Annotated[Path, Parameter(alias="-o")],
-    quiet: bool,
-    verbose: bool,
-    force: bool,
-    batch: bool,
-    dry_run: bool,
-    logfile: Path,
-    concurrency: int = 3,
+    quiet: Annotated[bool, Parameter(alias="-q")],
+    verbose: Annotated[bool, Parameter(alias="-v")],
+    force: Annotated[bool, Parameter(alias="-f")],
+    batch: Annotated[bool, Parameter(alias="-b")],
+    dry_run: Annotated[bool, Parameter(alias="-n")],
+    logfile: Annotated[Path, Parameter(alias="-l")],
+    concurrency: Annotated[int, Parameter(alias="-j")] = 3,
 ) -> int:
     """Download files from Wikimedia Commons
 
     Parameters
     ----------
-    input
+    input:
         Name of the file to download, with the File: prefix;
         or the URL of its file description page.
-    output
+    output:
         Path in which to store the downloaded files.
-    quiet
+    quiet:
         Suppress warning messages.
-    verbose
+    verbose:
         Print detailed information;
         pass it twice for even more detail.
-    force
+    force:
         Overwrite existing files in case of conflicts.
-    batch
+    batch:
         Treat input as a text file containing one entry per line,
         in the same format as input would otherwise expect.
-    dry_run
+    dry_run:
         Process the input it stop short of actually downloading anything.
-    logfile
+    logfile:
         Path in which to store the log output.
-    concurrency
+    concurrency:
         Amount of downloads to start in parallel.
         You should probably not need to modify this,
         but if you do, check Wikimedia's current policies at
