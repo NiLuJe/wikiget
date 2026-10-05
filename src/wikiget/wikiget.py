@@ -27,6 +27,7 @@ import sys
 from typing import Annotated
 
 from cyclopts import App, Group, Parameter, validators
+from cyclopts.types import Directory
 from . import USER_AGENT
 from . import __version__ as WIKIGET_VERSION
 from .dl import Downloader
@@ -112,7 +113,7 @@ flags = Group(
 @app.default
 def cli(
     input: Path | str,
-    output: Path,
+    output: Annotated[Path, Parameter(validator=validators.Path(dir_okay=True, file_okay=False))],
     logfile: Path,
     quiet: Annotated[bool, Parameter(group=verbosity)] = False,
     verbose: Annotated[bool, Parameter(group=verbosity)] = False,
