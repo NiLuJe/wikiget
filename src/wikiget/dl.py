@@ -301,15 +301,31 @@ class Downloader:
 
     def process_response(self, r: niquests.Response, f: File, progress: Progress) -> TaskID | None:
         """Fetch file information and contents if the file exists and save it to disk."""
+
         filename = f.name
+        # prepend the current filename to all log messages
+        adapter = FileLogAdapter(logger, {"filename": filename})
+
+        # Minimal error handling
+        try:
+            # NOTE: On r.status_code == requests.codes.ok (i.e., 200),
+            #       raise_for_status will return:
+            #       None with requests
+            #       r with niquests
+            r.raise_for_status()
+        except niquests.HTTPError as e:
+            adapter.error(f"File could not be downloaded: {e}")
+            self.increment_errors()
+            progress.console.log(
+                f"[bold red]FAILED[/] to download [bold magenta]{filename}[/] ([bold yellow]{r.status_code}[/])"
+            )
+            return None
+
         dest = f.dest
         file_url = f.url
         file_size = int(r.headers.get("content-length", 0))  # int(str(r.oheaders.content_length))
         # Poor man's hash check, MD5
         file_hash = str(r.oheaders.etag)
-
-        # prepend the current filename to all log messages
-        adapter = FileLogAdapter(logger, {"filename": filename})
 
         filename_log = f"Downloading '{filename}' ({file_size} bytes)"
         if self.output:
@@ -326,20 +342,6 @@ class Downloader:
             progress.update(task, total=file_size)
             with dest.open("wb") as fd:
                 progress.start_task(task)
-                # Minimal error handling
-                try:
-                    # NOTE: On r.status_code == requests.codes.ok (i.e., 200),
-                    #       raise_for_status will return:
-                    #       None with requests
-                    #       r with niquests
-                    r.raise_for_status()
-                except niquests.HTTPError as e:
-                    adapter.error(f"File could not be downloaded: {e}")
-                    dest.unlink()
-                    self.increment_errors()
-                    progress.console.log(f"[bold red]FAILED[/] to download [bold magenta]{filename}[/]")
-                    return task
-
                 for chunk in r.iter_content():
                     fd.write(chunk)
                     progress.update(task, advance=len(chunk))
