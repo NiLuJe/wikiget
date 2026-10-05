@@ -24,15 +24,16 @@ import logging
 import os
 from pathlib import Path
 import sys
+from typing import Annotated
 
-from cyclopts import App
+from cyclopts import App, Parameter
 from . import USER_AGENT
 from . import __version__ as WIKIGET_VERSION
 from .dl import Downloader
 from .logging import configure_logging
 
 
-app = App(help="Help string for this demo application.")
+app = App(help="CLI help for Wikiget")
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
     """Parse the given argument list.
@@ -98,10 +99,10 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-@app.command
+@app.default
 def cli(
     input: Path | str,
-    output: Path,
+    output: Annotated[Path, Parameter(alias="-o")],
     quiet: bool,
     verbose: bool,
     force: bool,
