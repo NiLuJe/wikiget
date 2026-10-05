@@ -19,14 +19,18 @@
 
 from __future__ import annotations
 
+from argparse import Namespace
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import timedelta
 from functools import partial
+import hashlib
 import logging
+from pathlib import Path
 import signal
 from threading import Event, Lock
 from types import FrameType
+from urllib.parse import unquote, urlparse
 
 from mwclient import APIError, InvalidResponse, LoginError, Site
 from requests import ConnectionError, HTTPError
@@ -44,14 +48,11 @@ from rich.progress import (
     TransferSpeedColumn,
 )
 
-from wikiget.client import connect_to_site, query_api
 from wikiget.exceptions import ParseError
+from wikiget.file import File
 from wikiget.logging import FileLogAdapter
 from wikiget.parse import get_dest, batch_files, batch_size
 from wikiget.validations import Validator
-
-from argparse import Namespace
-from wikiget.file import File
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +82,7 @@ class Downloader:
         })
 
         self.validator = Validator()
+        self.commons_base_url = "https://upload.wikimedia.org/wikipedia/commons"
 
         # And install our SIGINT handler
         self.done_event = Event()
@@ -103,6 +105,51 @@ class Downloader:
     def handle_sigint(self, _signum: int, _frame: FrameType):
         self.done_event.set()
         self.console.log("Caught a [bold red]SIGINT[/], tearing down pending tasks...")
+
+    def get_commons_url(self, filename: str) -> str:
+        # c.f., https://commons.wikimedia.org/wiki/Commons:FAQ#What_are_the_strangely_named_components_in_file_paths?
+        # Heavily inspired from CommonsDownloadTool's commons_file_url, c.f.,
+        # https://github.com/lingua-libre/CommonsDownloadTool/blob/b2653dc7f38d561d6034e460dcd0eb4e96fbef6c/commons_download_tool.py#L60C1-L90
+
+        if '/' in filename:
+            # Extract the final path component if need be
+            _, filename = filename.rsplit("/", 1)
+
+        # Ensure input is UTF-8, as that's how WM computes this
+        hashed_name = hashlib.md5(filename.encode("utf-8")).hexdigest()
+
+        file_path = f"{hashed_name[0]}/{hashed_name[:2]}/{filename}"
+
+        return f"{self.commons_base_url}/{file_path}"
+
+    def get_dest(self, dl: str) -> File:
+        # First, check if the input isn't already a proper URL
+        url = urlparse(dl)
+
+        if url.netloc:
+            filename = url.path
+        else:
+            filename = dl
+
+        # Check if this looks like a valid WikiMedia file
+        file_match = self.validator.valid_file(filename)
+        if file_match and file_match.group(1):
+            # has File:/Image: prefix and extension
+            filename = file_match.group(2)
+        else:
+            # no file extension and/or prefix, probably an article
+            raise ParseError(f"Could not parse input '{dl}' as a file")
+
+        # Remove anything that might have been URL-encoded for our local path
+        filename = unquote(filename)
+
+        # Get the canonical commons URL for that file
+        file_url = self.get_commons_url(filename)
+
+        filename = Path(filename)
+        # FIXME: Support prepending an output directory here
+        dest = filename
+        return File(filename, dest, file_url)
 
     def prep_download(self, dl: str) -> File:
         """Prepare to download a file by parsing the filename or URL and CLI arguments.

@@ -25,13 +25,12 @@ class File:
     """A file object."""
 
     def __init__(
-        self, name: Path, dest: Path | None,
+        self, name: Path, dest: Path | None, url: str,
     ) -> None:
         """Initialize a new file with the given parameters.
 
         Only the name is required. If a destination isn't specified, the provided name
-        will be used as the output name, and if no site is given, the default site will
-        be used (commons.wikimedia.org).
+        will be used as the output name.
 
         :param name: name of the file
         :type name: str
@@ -40,6 +39,7 @@ class File:
         """
         self.name = name
         self.dest = dest or name
+        self.url = url
 
     def __eq__(self, other: object) -> bool:
         """Compare this File object with another for equality.
