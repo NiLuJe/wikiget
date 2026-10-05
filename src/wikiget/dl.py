@@ -21,7 +21,6 @@ from __future__ import annotations
 
 from argparse import Namespace
 from collections import Counter
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import timedelta
 from functools import partial
 import hashlib
@@ -29,7 +28,7 @@ from itertools import batched
 import logging
 from pathlib import Path
 import signal
-from threading import Event, Lock
+from threading import Event
 from types import FrameType
 from typing import Any
 from urllib.parse import unquote, urlparse
@@ -43,8 +42,8 @@ from rich.progress import (
     Progress,
     SpinnerColumn,
     TaskID,
-    TextColumn,
     TaskProgressColumn,
+    TextColumn,
     TimeElapsedColumn,
     TimeRemainingColumn,
     TransferSpeedColumn,
@@ -58,6 +57,7 @@ from wikiget.parse import batch_files, batch_size
 from wikiget.validations import Validator
 
 logger = logging.getLogger(__name__)
+
 
 class Downloader:
     def __init__(self, args: Namespace) -> None:
@@ -76,10 +76,12 @@ class Downloader:
 
         self.console = Console()
 
-        self.status = Counter({
-            "errors": 0,
-            "warnings": 0,
-        })
+        self.status = Counter(
+            {
+                "errors": 0,
+                "warnings": 0,
+            }
+        )
 
         self.validate = Validator()
         self.commons_base_url = "https://upload.wikimedia.org/wikipedia/commons"
@@ -140,7 +142,7 @@ class Downloader:
         # Heavily inspired from CommonsDownloadTool's commons_file_url, c.f.,
         # https://github.com/lingua-libre/CommonsDownloadTool/blob/b2653dc7f38d561d6034e460dcd0eb4e96fbef6c/commons_download_tool.py#L60C1-L90
 
-        if '/' in filename:
+        if "/" in filename:
             # Extract the final path component if need be
             _, filename = filename.rsplit("/", 1)
 
@@ -265,11 +267,11 @@ class Downloader:
         errors, warnings = self.errors(), self.warnings()
         if errors or warnings:
             logger.warning(
-                    "%d error%s and %d warning%s encountered during processing",
-                    errors,
-                    "s"[: errors ^ 1],
-                    warnings,
-                    "s"[: warnings ^ 1],
+                "%d error%s and %d warning%s encountered during processing",
+                errors,
+                "s"[: errors ^ 1],
+                warnings,
+                "s"[: warnings ^ 1],
             )
 
         # return a non-zero exit code if any meaningful problems were encountered,
@@ -297,12 +299,11 @@ class Downloader:
         return file
 
     def process_response(self, r: niquests.Response, f: File, progress: Progress) -> TaskID | None:
-        """Fetch file information and contents if the file exists and save it to disk.
-        """
+        """Fetch file information and contents if the file exists and save it to disk."""
         filename = f.name
         dest = f.dest
         file_url = f.url
-        file_size = int(r.headers.get("content-length", 0)) # int(str(r.oheaders.content_length))
+        file_size = int(r.headers.get("content-length", 0))  # int(str(r.oheaders.content_length))
         # Poor man's hash check, MD5
         file_hash = str(r.oheaders.etag)
 

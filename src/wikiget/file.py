@@ -21,11 +21,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
+
 class File:
     """A file object."""
 
     def __init__(
-        self, name: Path, dest: Path | None, url: str,
+        self,
+        name: Path,
+        dest: Path | None,
+        url: str,
     ) -> None:
         """Initialize a new file with the given parameters.
 
@@ -51,10 +55,7 @@ class File:
         """
         if not isinstance(other, File):
             return NotImplemented
-        return (
-            self.name == other.name
-            and self.dest == other.dest
-        )
+        return self.name == other.name and self.dest == other.dest
 
     def __str__(self) -> str:
         """Return a basic string representation of this class, for str().

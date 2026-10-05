@@ -64,9 +64,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         version=f"%(prog)s {wikiget.__version__}",
     )
     message_options = parser.add_mutually_exclusive_group()
-    message_options.add_argument(
-        "-q", "--quiet", help="suppress warning messages", action="store_true"
-    )
+    message_options.add_argument("-q", "--quiet", help="suppress warning messages", action="store_true")
     message_options.add_argument(
         "-v",
         "--verbose",
@@ -74,45 +72,16 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         action="count",
         default=0,
     )
-    parser.add_argument(
-        "-f", "--force", help="force overwriting existing files", action="store_true"
-    )
-    parser.add_argument(
-        "-s",
-        "--site",
-        default=wikiget.DEFAULT_SITE,
-        help="MediaWiki site to download from (default: %(default)s)",
-    )
-    parser.add_argument(
-        "-P",
-        "--path",
-        default=wikiget.DEFAULT_PATH,
-        help="MediaWiki site path, where api.php is located (default: %(default)s)",
-    )
-    parser.add_argument(
-        "-u",
-        "--username",
-        default="",
-        help="MediaWiki site username, for private wikis",
-    )
-    parser.add_argument(
-        "-p",
-        "--password",
-        default="",
-        help="MediaWiki site password, for private wikis",
-    )
+    parser.add_argument("-f", "--force", help="force overwriting existing files", action="store_true")
     output_options = parser.add_mutually_exclusive_group()
     output_options.add_argument("-o", "--output", help="write download to OUTPUT")
     output_options.add_argument(
         "-a",
         "--batch",
-        help="treat FILE as a textfile containing multiple files to download, one URL "
-        "or filename per line",
+        help="treat FILE as a textfile containing multiple files to download, one URL or filename per line",
         action="store_true",
     )
-    parser.add_argument(
-        "-l", "--logfile", default="", help="save log output to LOGFILE"
-    )
+    parser.add_argument("-l", "--logfile", default="", help="save log output to LOGFILE")
     parser.add_argument(
         "-j",
         "--threads",

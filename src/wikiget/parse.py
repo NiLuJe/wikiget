@@ -18,23 +18,16 @@
 """Parse download targets and batch files."""
 
 from __future__ import annotations
-from pathlib import Path
 
-from argparse import Namespace
+from collections.abc import Iterable
 import fileinput
 import logging
 import sys
-from collections.abc import Iterable
-from urllib.parse import unquote, urlparse
 
 from more_itertools import ilen
 
-import wikiget
-from wikiget.exceptions import ParseError
-from wikiget.file import File
-from wikiget.validations import valid_file
-
 logger = logging.getLogger(__name__)
+
 
 def batch_size(batch_file: str) -> int:
     """Returns the amount of lines in the input.
@@ -58,6 +51,7 @@ def batch_size(batch_file: str) -> int:
         sys.stdin.seek(0)
 
     return size
+
 
 def batch_files(batch_file: str) -> Iterable[tuple[int, str]]:
     """Parse a batch file or stdin for valid input.

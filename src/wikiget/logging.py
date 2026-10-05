@@ -19,17 +19,18 @@
 
 from __future__ import annotations
 
+from collections.abc import MutableMapping
 import logging
-from typing import Any, MutableMapping
+from typing import Any
 
 import wikiget
 
 
-class FileLogAdapter(logging.LoggerAdapter):
-    def process(
-        self, msg: Any, kwargs: MutableMapping[str, Any]
-    ) -> tuple[str, MutableMapping[str, Any]]:
-        return f"[{self.extra['filename']}] {msg}", kwargs
+class FileLogAdapter(logging.LoggerAdapter[logging.Logger]):
+    def process(self, msg: str, kwargs: MutableMapping[str, Any]) -> tuple[str, MutableMapping[str, Any]]:
+        if self.extra is not None:
+            return f"[{self.extra['filename']}] {msg}", kwargs
+        return msg, kwargs
 
 
 def configure_logging(verbosity: int, logfile: str, *, quiet: bool) -> None:

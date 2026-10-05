@@ -20,11 +20,9 @@
 from __future__ import annotations
 
 import hashlib
+from pathlib import Path
 import re
 
-from wikiget import BLOCKSIZE
-
-from pathlib import Path
 
 class Validator:
     def __init__(self) -> None:
@@ -48,7 +46,6 @@ class Validator:
 
         return self.file_re.search(search_string)
 
-
     def site(self, search_string: str) -> re.Match | None:
         """Determine if the given string contains a valid site name.
 
@@ -64,7 +61,6 @@ class Validator:
         :rtype: re.Match
         """
         return self.site_re.search(search_string)
-
 
     def hash(self, file: Path) -> str:
         """Calculate the MD5 hash of the given file for comparison with a known value.

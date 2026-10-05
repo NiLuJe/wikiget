@@ -94,7 +94,7 @@ extend-ignore = ["E402", "W191", "E501"]
 force-sort-within-sections = true
 
 [tool.ruff.format]
-indent-style = "tab"
+indent-style = "space"
 
 [tool.coverage.run]
 branch = true
