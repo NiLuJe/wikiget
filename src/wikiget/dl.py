@@ -31,6 +31,7 @@ from pathlib import Path
 import signal
 from threading import Event, Lock
 from types import FrameType
+from typing import Any
 from urllib.parse import unquote, urlparse
 
 from more_itertools import quantify
@@ -90,18 +91,16 @@ class Downloader:
     def errors(self) -> int:
         return self.status["errors"]
 
-    @staticmethod
-    def increment_errors(counter: Counter) -> None:
-        counter["errors"] += 1
+    def increment_errors(self) -> None:
+        self.status["errors"] += 1
 
     def warnings(self) -> int:
         return self.status["warnings"]
 
-    @staticmethod
-    def increment_warnings(counter: Counter) -> None:
-        counter["warnings"] += 1
+    def increment_warnings(self) -> None:
+        self.status["warnings"] += 1
 
-    def handle_sigint(self, _signum: int, _frame: FrameType):
+    def handle_sigint(self, _signum: int, _frame: FrameType | None) -> Any:
         self.done_event.set()
         self.console.log("Caught a [bold red]SIGINT[/], tearing down pending tasks...")
 
@@ -288,11 +287,11 @@ class Downloader:
             file = self.prep_download(line)
         except ParseError as e:
             logger.error("%s (line %i)", str(e), line_num)
-            self.increment_errors(self.status)
+            self.increment_errors()
             file = None
         except FileExistsError as e:
             logger.warning(e)
-            self.increment_warnings(self.status)
+            self.increment_warnings()
             file = None
 
         return file
@@ -335,7 +334,7 @@ class Downloader:
                 except niquests.HTTPError as e:
                     adapter.error(f"File could not be downloaded: {e}")
                     dest.unlink()
-                    self.increment_errors(self.status)
+                    self.increment_errors()
                     progress.console.log(f"[bold red]FAILED[/] to download [bold magenta]{filename}[/]")
                     return task
 
@@ -362,7 +361,7 @@ class Downloader:
         except OSError as e:
             adapter.error(f"File could not be written: {e}")
             dest.unlink(missing_ok=True)
-            self.increment_errors(self.status)
+            self.increment_errors()
             progress.console.log(f"[bold red]FAILED[/] to write local file for [bold magenta]{filename}[/]")
             return task
 
@@ -372,7 +371,7 @@ class Downloader:
         except OSError as e:
             adapter.error(f"File downloaded but could not be verified: {e}")
             dest.unlink()
-            self.increment_errors(self.status)
+            self.increment_errors()
             progress.console.log(f"[bold red]FAILED[/] to verify downloaded [bold magenta]{filename}[/]")
             return task
 
@@ -388,7 +387,7 @@ class Downloader:
         else:
             adapter.error("Hash mismatch! Downloaded file may be corrupt.")
             dest.unlink()
-            self.increment_errors(self.status)
+            self.increment_errors()
             progress.console.log(f"[bold red]CORRUPT[/] download for [bold magenta]{filename}[/]")
 
         return task
