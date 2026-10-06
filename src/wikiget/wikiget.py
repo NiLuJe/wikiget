@@ -117,37 +117,22 @@ flags = Group(
 @Parameter(name="*")
 @dataclass
 class Config:
-    """Bundle of CLI config choices
+    "Bundle of CLI config choices"
 
-    Parameters
-    ----------
-    logfile:
-        Path in which to store the log output.
-    quiet:
-        Suppress warning messages.
-    verbose:
-        Print detailed information;
-        pass it twice for even more detail.
-    force:
-        Overwrite existing files in case of conflicts.
-    batch:
-        Treat INPUT as a text file containing one entry per line,
-        in the same format as input would otherwise expect.
-    dry_run:
-        Process the input but stop short of actually downloading anything.
-    concurrency:
-        Amount of downloads to start in parallel.
-        Check Wikimedia's current policies at
-        https://www.mediawiki.org/wiki/Wikimedia_APIs/Rate_limits
-        before raising this.
-    """
     logfile: Path | None = None
+    "Path in which to store the log output."
     quiet: Annotated[bool, Parameter(group=verbosity)] = False
+    "Suppress warning messages."
     verbose: Annotated[int, Parameter(group=verbosity, count=True)] = 0
+    "Print detailed information; pass it twice for even more detail."
     force: Annotated[bool, Parameter(group=flags)] = False
+    "Overwrite existing files in case of conflicts."
     batch: Annotated[bool, Parameter(group=flags)] = False
+    "Treat INPUT as a text file containing one entry per line, in the same format as input would otherwise expect."
     dry_run: Annotated[bool, Parameter(alias="-n", group=flags)] = False
+    "Process the input but stop short of actually downloading anything."
     concurrency: Annotated[PositiveInt, Parameter(alias="-j")] = 3
+    "Amount of downloads to start in parallel. Check Wikimedia's current policies at https://www.mediawiki.org/wiki/Wikimedia_APIs/Rate_limits before raising this."
 
 @app.default
 def cli(
