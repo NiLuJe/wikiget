@@ -35,9 +35,9 @@ from .dl import Downloader
 from .logging import configure_logging
 
 
-# FIXME: Fix the usage string, we don't have a COMMAND set
 app = App(default_parameter=Parameter(short_alias=True), help_prologue=f"Wikiget v{WIKIGET_VERSION} (https://github.com/NiLuJe/wikiget)", version_flags=["--version", "-V"], config=config.Toml("config.toml", use_commands_as_keys=False))
-app.register_install_completion_command()
+# NOTE: This adds a seemingly-required COMMAND placeholder in the USAGE string :/
+# app.register_install_completion_command()
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
     """Parse the given argument list.
