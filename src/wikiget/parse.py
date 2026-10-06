@@ -20,16 +20,16 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-import fileinput
 import logging
 import sys
 
+from cyclopts.types import StdioPath
 from more_itertools import ilen
 
 logger = logging.getLogger(__name__)
 
 
-def batch_size(batch_file: str) -> int:
+def batch_size(batch_file: StdioPath) -> int:
     """Returns the amount of lines in the input.
     NOTE: This does *NOT* do any kind of validation,
           so this may return a count slightly higher than
@@ -42,18 +42,18 @@ def batch_size(batch_file: str) -> int:
     :rtype: int
     """
 
-    # NOTE: Because we consume batch_files as a generator,
+    # NOTE: Because we consume batch_file as a generator,
     #       we don't really have a better way to do this than just consuming the iterator :/.
-    size = ilen(fileinput.input(batch_file, encoding="utf-8"))
+    size = ilen(batch_file.open("rb"))
 
     # Rewind stdin for later batch_files calls
-    if batch_file == "-":
+    if batch_file.is_stdio:
         sys.stdin.seek(0)
 
     return size
 
 
-def batch_files(batch_file: str) -> Iterable[tuple[int, str]]:
+def batch_files(batch_file: StdioPath) -> Iterable[tuple[int, str]]:
     """Parse a batch file or stdin for valid input.
     Any blank lines or lines starting with '#' are skipped.
 
@@ -63,13 +63,10 @@ def batch_files(batch_file: str) -> Iterable[tuple[int, str]]:
     :rtype: Iterable[tuple[int, str]]
     """
 
-    if batch_file == "-":
-        logger.info("Using stdin for batch download")
-    else:
-        logger.info("Using file '%s' for batch download", batch_file)
+    logger.info("Reading batch from %s", batch_file.is_stdio and 'stdin' or str(batch_file))
 
-    with fileinput.input(batch_file, encoding="utf-8") as fd:
-        # read the file into memory and process each line as we go
+    with batch_file.open(batch_file, "r") as fd:
+        # Process each line as we go
         for line_num, line in enumerate(fd, start=1):
             line_s = line.strip()
             # ignore blank lines and lines starting with "#" (for comments)

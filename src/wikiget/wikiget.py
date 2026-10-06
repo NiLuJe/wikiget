@@ -28,7 +28,7 @@ import sys
 from typing import Annotated, Final
 
 from cyclopts import App, Group, Parameter, config, validators
-from cyclopts.types import Directory, PositiveInt
+from cyclopts.types import Directory, PositiveInt, StdioPath
 from rich.console import Console
 from rich.traceback import install as install_rich_traceback
 
@@ -142,7 +142,7 @@ class Config:
 
 @app.default
 def cli(
-    input: Path | str,
+    input: StdioPath,
     /,
     output: Directory | None = None,
     *,
