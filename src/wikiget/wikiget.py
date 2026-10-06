@@ -35,6 +35,7 @@ from .logging import configure_logging
 
 
 app = App(default_parameter=Parameter(short_alias=True), help_prologue=f"Wikiget v{WIKIGET_VERSION} (https://github.com/NiLuJe/wikiget)", version_flags=["--version", "-V"])
+app.register_install_completion_command()
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
     """Parse the given argument list.
