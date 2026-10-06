@@ -115,8 +115,16 @@ def cli(
 
     # Sanity check args.FILE
     if not input.is_stdio and not (input.is_file() and os.access(input, os.R_OK)):
-        logger.critical("Cannot access input file `%s`!", input)
+        logger.critical("Cannot access input file `%s`!", str(input))
         return 1
+
+    # Create output directory
+    if output:
+        output.mkdir(parents=True, exist_ok=False)
+        if not output.is_dir():
+            logger.critical("Output `%s` is not a directory!", str(output))
+        if not os.access(output, os.W_OK):
+            logger.critical("Output directory `%s` is not writable!", str(output))
 
     # Log events are appended to the file if it already exists,
     # so, note the start of a new download session.
