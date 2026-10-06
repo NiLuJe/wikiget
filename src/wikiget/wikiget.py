@@ -20,11 +20,12 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
 import logging
 import os
 from pathlib import Path
 import sys
-from typing import Annotated
+from typing import Annotated, Final
 
 from cyclopts import App, Group, Parameter, validators
 from cyclopts.types import Directory, PositiveInt
@@ -112,31 +113,16 @@ flags = Group(
     default_parameter=Parameter(negative="", show_default=False),
 )
 
-@app.default
-def cli(
-    input: Path | str,
-    /,
-    output: Directory | None = None,
-    *,
-    logfile: Path | None = None,
-    quiet: Annotated[bool, Parameter(group=verbosity)] = False,
-    verbose: Annotated[int, Parameter(group=verbosity, count=True)] = 0,
-    force: Annotated[bool, Parameter(group=flags)] = False,
-    batch: Annotated[bool, Parameter(group=flags)] = False,
-    dry_run: Annotated[bool, Parameter(alias="-n", group=flags)] = False,
-    concurrency: Annotated[PositiveInt, Parameter(alias="-j")] = 3,
-) -> int:
-    """Download files from **Wikimedia Commons**
-
-    **CLI** Help:
+# Flatten parameters in a single object we can pass around
+@Parameter(name="*")
+@dataclass
+class Config:
+    """Bundle of CLI config choices
 
     Parameters
     ----------
-    input:
-        Name of the file to download, with the File: prefix;
-        or the URL of its file description page.
-    output:
-        Path in which to store the downloaded files.
+    logfile:
+        Path in which to store the log output.
     quiet:
         Suppress warning messages.
     verbose:
@@ -149,17 +135,46 @@ def cli(
         in the same format as input would otherwise expect.
     dry_run:
         Process the input but stop short of actually downloading anything.
-    logfile:
-        Path in which to store the log output.
     concurrency:
         Amount of downloads to start in parallel.
         Check Wikimedia's current policies at
         https://www.mediawiki.org/wiki/Wikimedia_APIs/Rate_limits
         before raising this.
     """
+    logfile: Path | None = None
+    quiet: Annotated[bool, Parameter(group=verbosity)] = False
+    verbose: Annotated[int, Parameter(group=verbosity, count=True)] = 0
+    force: Annotated[bool, Parameter(group=flags)] = False
+    batch: Annotated[bool, Parameter(group=flags)] = False
+    dry_run: Annotated[bool, Parameter(alias="-n", group=flags)] = False
+    concurrency: Annotated[PositiveInt, Parameter(alias="-j")] = 3
+
+@app.default
+def cli(
+    input: Path | str,
+    /,
+    output: Directory | None = None,
+    *,
+    config: Config | None = None,
+) -> int:
+    """Download files from **Wikimedia Commons**
+
+    **CLI** Help:
+
+    Parameters
+    ----------
+    input:
+        Name of the file to download, with the File: prefix;
+        or the URL of its file description page.
+    output:
+        Path in which to store the downloaded files.
+    """
 
     # TODO: Actually handle input being a str and not stdin?
     return 0
+
+    if config is None:
+        config = Config()
 
     configure_logging(verbosity=args.verbose, logfile=args.logfile, quiet=args.quiet)
 
