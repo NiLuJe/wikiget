@@ -35,7 +35,6 @@ from .logging import configure_logging
 
 
 # FIXME: Fix the usage string, we don't have a COMMAND set
-#        Also, make it clearer INPUT can be positional (Group?)
 app = App(default_parameter=Parameter(short_alias=True), help_prologue=f"Wikiget v{WIKIGET_VERSION} (https://github.com/NiLuJe/wikiget)", version_flags=["--version", "-V"])
 app.register_install_completion_command()
 
@@ -116,6 +115,7 @@ flags = Group(
 @app.default
 def cli(
     input: Path | str,
+    /,
     output: Directory | None = None,
     logfile: Path | None = None,
     quiet: Annotated[bool, Parameter(group=verbosity)] = False,
