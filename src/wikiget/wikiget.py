@@ -29,15 +29,21 @@ from typing import Annotated, Final
 
 from cyclopts import App, Group, Parameter, config, validators
 from cyclopts.types import Directory, PositiveInt
+from rich.console import Console
+from rich.traceback import install as install_rich_traceback
+
 from . import USER_AGENT
 from . import __version__ as WIKIGET_VERSION
 from .dl import Downloader
 from .logging import configure_logging
 
-
-app = App(default_parameter=Parameter(short_alias=True), help_prologue=f"Wikiget v{WIKIGET_VERSION} (https://github.com/NiLuJe/wikiget)", version_flags=["--version", "-V"], config=config.Toml("config.toml", use_commands_as_keys=False))
+error_console = Console(stderr=True)
+app = App(console=Console(), error_console=error_console, default_parameter=Parameter(short_alias=True), help_prologue=f"Wikiget v{WIKIGET_VERSION} (https://github.com/NiLuJe/wikiget)", version_flags=["--version", "-V"], config=config.Toml("config.toml", use_commands_as_keys=False))
 # NOTE: This adds a seemingly-required COMMAND placeholder in the USAGE string :/
 # app.register_install_completion_command()
+
+# Install verbose rich traceback handler using the error console
+install_rich_traceback(console=error_console, show_locals=True)
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
     """Parse the given argument list.
