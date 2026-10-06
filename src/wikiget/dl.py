@@ -32,6 +32,7 @@ from types import FrameType
 from typing import Any
 from urllib.parse import unquote, urlparse
 
+from cyclopts.types import StdioPath
 import niquests
 from rich.progress import (
     BarColumn,
@@ -58,7 +59,7 @@ logger = logging.getLogger(__name__)
 
 
 class Downloader:
-    def __init__(self, input: Path, output: Path, cfg: Config) -> None:
+    def __init__(self, input: StdioPath, output: Path | None, cfg: Config) -> None:
         """Instantiate a downloader instance, following the CLI args."""
 
         self.cfg = cfg

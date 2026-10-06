@@ -23,7 +23,7 @@ from dataclasses import dataclass
 import logging
 import os
 from pathlib import Path
-from typing import Annotated, Final
+from typing import Annotated
 
 from cyclopts import App, Group, Parameter, config, validators
 from cyclopts.types import Directory, PositiveInt, StdioPath
@@ -37,7 +37,14 @@ from .logging import configure_logging
 
 console = Console()
 error_console = Console(stderr=True)
-app = App(console=console, error_console=error_console, default_parameter=Parameter(short_alias=True), help_prologue=f"Wikiget v{WIKIGET_VERSION} (https://github.com/NiLuJe/wikiget)", version_flags=["--version", "-V"], config=config.Toml("config.toml", use_commands_as_keys=False))
+app = App(
+    console=console,
+    error_console=error_console,
+    default_parameter=Parameter(short_alias=True),
+    help_prologue=f"Wikiget v{WIKIGET_VERSION} (https://github.com/NiLuJe/wikiget)",
+    version_flags=["--version", "-V"],
+    config=config.Toml("config.toml", use_commands_as_keys=False),
+)
 # NOTE: This adds a seemingly-required COMMAND placeholder in the USAGE string :/
 # app.register_install_completion_command()
 
@@ -54,6 +61,7 @@ verbosity = Group(
 flags = Group(
     default_parameter=Parameter(negative="", show_default=False),
 )
+
 
 # Flatten parameters in a single object we can pass around
 @Parameter(name="*")
@@ -75,6 +83,7 @@ class Config:
     "Process the input but stop short of actually downloading anything."
     concurrency: Annotated[PositiveInt, Parameter(alias="-j")] = 3
     "Amount of downloads to start in parallel. Check Wikimedia's current policies at https://www.mediawiki.org/wiki/Wikimedia_APIs/Rate_limits before raising this."
+
 
 @app.default
 def cli(

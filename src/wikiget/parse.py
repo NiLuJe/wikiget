@@ -63,9 +63,9 @@ def batch_files(batch_file: StdioPath) -> Iterable[tuple[int, str]]:
     :rtype: Iterable[tuple[int, str]]
     """
 
-    logger.info("Reading batch from %s", batch_file.is_stdio and 'stdin' or str(batch_file))
+    logger.info("Reading batch from %s", batch_file.is_stdio and "stdin" or str(batch_file))
 
-    with batch_file.open(batch_file, "r") as fd:
+    with batch_file.open() as fd:
         # Process each line as we go
         for line_num, line in enumerate(fd, start=1):
             line_s = line.strip()

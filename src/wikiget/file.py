@@ -23,12 +23,14 @@ from pathlib import Path
 
 from attrs import define
 
+
 # FIXME: refactor that a bit once we move to cyclopts...
 @define
 class File:
     """A file object."""
+
     name: Path
-    dest: Path | None
+    dest: Path
     url: str
 
     def __eq__(self, other: object) -> bool:
