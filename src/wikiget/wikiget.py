@@ -145,18 +145,17 @@ def cli(
     force:
         Overwrite existing files in case of conflicts.
     batch:
-        Treat input as a text file containing one entry per line,
+        Treat INPUT as a text file containing one entry per line,
         in the same format as input would otherwise expect.
     dry_run:
-        Process the input it stop short of actually downloading anything.
+        Process the input but stop short of actually downloading anything.
     logfile:
         Path in which to store the log output.
     concurrency:
         Amount of downloads to start in parallel.
-        You should probably not need to modify this,
-        but if you do, check Wikimedia's current policies at
+        Check Wikimedia's current policies at
         https://www.mediawiki.org/wiki/Wikimedia_APIs/Rate_limits
-        first.
+        before raising this.
     """
 
     # TODO: Actually handle input being a str and not stdin?

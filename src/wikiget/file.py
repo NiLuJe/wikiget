@@ -23,6 +23,7 @@ from pathlib import Path
 
 
 # FIXME: refactor that a bit once we move to cyclopts...
+# FIXME: Switch to attrs while doing that.
 class File:
     """A file object."""
 
