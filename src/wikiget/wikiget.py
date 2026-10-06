@@ -19,12 +19,10 @@
 
 from __future__ import annotations
 
-import argparse
 from dataclasses import dataclass
 import logging
 import os
 from pathlib import Path
-import sys
 from typing import Annotated, Final
 
 from cyclopts import App, Group, Parameter, config, validators
@@ -37,76 +35,14 @@ from . import __version__ as WIKIGET_VERSION
 from .dl import Downloader
 from .logging import configure_logging
 
+console = Console()
 error_console = Console(stderr=True)
-app = App(console=Console(), error_console=error_console, default_parameter=Parameter(short_alias=True), help_prologue=f"Wikiget v{WIKIGET_VERSION} (https://github.com/NiLuJe/wikiget)", version_flags=["--version", "-V"], config=config.Toml("config.toml", use_commands_as_keys=False))
+app = App(console=console, error_console=error_console, default_parameter=Parameter(short_alias=True), help_prologue=f"Wikiget v{WIKIGET_VERSION} (https://github.com/NiLuJe/wikiget)", version_flags=["--version", "-V"], config=config.Toml("config.toml", use_commands_as_keys=False))
 # NOTE: This adds a seemingly-required COMMAND placeholder in the USAGE string :/
 # app.register_install_completion_command()
 
 # Install verbose rich traceback handler using the error console
 install_rich_traceback(console=error_console, show_locals=True)
-
-def parse_args(argv: list[str]) -> argparse.Namespace:
-    """Parse the given argument list.
-
-    :param argv: a list of arguments in string form
-    :type argv: list[str]
-    :return: a Namespace containing the arguments and their values
-    :rtype: argparse.Namespace
-    """
-    parser = argparse.ArgumentParser(
-        description="""
-        A tool for downloading files from MediaWiki sites using the file name or
-        description page URL.
-        """,
-        epilog="""
-        Copyright (C) 2018-2023 Cody Logan and contributors. License GPLv3+: GNU GPL
-        version 3 or later <http://www.gnu.org/licenses/gpl.html>. This is free
-        software; you are free to change and redistribute it under certain conditions.
-        There is NO WARRANTY, to the extent permitted by law.
-        """,
-        prog="wikiget",
-    )
-    parser.add_argument(
-        "FILE",
-        help="""
-        name of the file to download, with the File: prefix, or the URL of its file
-        description page
-        """,
-    )
-    message_options = parser.add_mutually_exclusive_group()
-    message_options.add_argument("-q", "--quiet", help="suppress warning messages", action="store_true")
-    message_options.add_argument(
-        "-v",
-        "--verbose",
-        help="print detailed information; use -vv for even more detail",
-        action="count",
-        default=0,
-    )
-    parser.add_argument("-f", "--force", help="force overwriting existing files", action="store_true")
-    output_options = parser.add_mutually_exclusive_group()
-    output_options.add_argument("-o", "--output", help="write download to OUTPUT")
-    output_options.add_argument(
-        "-a",
-        "--batch",
-        help="treat FILE as a textfile containing multiple files to download, one URL or filename per line",
-        action="store_true",
-    )
-    parser.add_argument("-l", "--logfile", default="", help="save log output to LOGFILE")
-    parser.add_argument(
-        "-j",
-        "--threads",
-        default=1,
-        help="number of parallel downloads to attempt in batch mode",
-        type=int,
-    )
-    parser.add_argument(
-        "-n",
-        "--dry-run",
-        help="check the download or batch file without actually downloading anything",
-        action="store_true",
-    )
-
-    return parser.parse_args(argv)
 
 verbosity = Group(
     "Verbosity",
@@ -146,7 +82,7 @@ def cli(
     /,
     output: Directory | None = None,
     *,
-    config: Config | None = None,
+    cfg: Config | None = None,
 ) -> int:
     """Download files from **Wikimedia Commons**
 
@@ -161,25 +97,22 @@ def cli(
         Path in which to store the downloaded files.
     """
 
-    # TODO: Actually handle input being a str and not stdin?
-    return 0
+    if cfg is None:
+        cfg = Config()
 
-    if config is None:
-        config = Config()
-
-    configure_logging(verbosity=args.verbose, logfile=args.logfile, quiet=args.quiet)
+    configure_logging(verbosity=cfg.verbose, logfile=cfg.logfile, quiet=cfg.quiet)
 
     logger = logging.getLogger(__name__)
 
     # Sanity check args.FILE
-    if args.FILE != "-" and not (os.path.isfile(args.FILE) and os.access(args.FILE, os.R_OK)):
-        logger.critical("Cannot access input file `%s`!", args.FILE)
+    if not input.is_stdio and not (input.is_file() and os.access(input, os.R_OK)):
+        logger.critical("Cannot access input file `%s`!", input)
         return 1
 
-    # log events are appended to the file if it already exists, so note the start of a
-    # new download session
+    # Log events are appended to the file if it already exists,
+    # so, note the start of a new download session.
     logger.info("Starting download session using wikiget %s", WIKIGET_VERSION)
     logger.debug("User agent: %s", USER_AGENT)
 
-    dl = Downloader(args)
+    dl = Downloader(input, output, cfg)
     return dl.process_download()

@@ -19,7 +19,6 @@
 
 from __future__ import annotations
 
-from argparse import Namespace
 from collections import Counter
 from datetime import timedelta
 from functools import partial
@@ -34,7 +33,6 @@ from typing import Any
 from urllib.parse import unquote, urlparse
 
 import niquests
-from rich.console import Console
 from rich.progress import (
     BarColumn,
     DownloadColumn,
@@ -54,26 +52,24 @@ from .file import File
 from .logging import FileLogAdapter
 from .parse import batch_files, batch_size
 from .validations import Validator
+from .wikiget import Config, console
 
 logger = logging.getLogger(__name__)
 
 
 class Downloader:
-    def __init__(self, args: Namespace) -> None:
+    def __init__(self, input: Path, output: Path, cfg: Config) -> None:
         """Instantiate a downloader instance, following the CLI args.
-
-        :param args: command-line arguments and their values
-        :type args: argparse.Namespace
         """
 
-        self.args = args
-        self.input = self.args.FILE
-        self.output = self.args.output
-        self.force_redownload = self.args.force
-        self.concurrency = self.args.threads
-        self.dry_run = self.args.dry_run
+        self.cfg = cfg
+        self.input = input
+        self.output = output
+        self.force_redownload = self.cfg.force
+        self.concurrency = self.cfg.concurrency
+        self.dry_run = self.cfg.dry_run
 
-        self.console = Console()
+        self.console = console
 
         self.status = Counter(
             {

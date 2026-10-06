@@ -21,6 +21,7 @@ from __future__ import annotations
 
 from collections.abc import MutableMapping
 import logging
+from pathlib import Path
 from typing import Any
 
 from . import VERBOSE, VERY_VERBOSE
@@ -33,7 +34,7 @@ class FileLogAdapter(logging.LoggerAdapter[logging.Logger]):
         return msg, kwargs
 
 
-def configure_logging(verbosity: int, logfile: str, *, quiet: bool) -> None:
+def configure_logging(verbosity: int, logfile: Path | None, *, quiet: bool) -> None:
     """Set the program's log configuration according to the given settings.
 
     :param verbosity: how verbose the log messages should be
