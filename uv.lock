@@ -1278,6 +1278,7 @@ wheels = [
 name = "wikiget"
 source = { editable = "." }
 dependencies = [
+    { name = "attrs" },
     { name = "cyclopts" },
     { name = "more-itertools" },
     { name = "niquests", extra = ["speedups"] },
@@ -1308,6 +1309,7 @@ typecheck = [
 
 [package.metadata]
 requires-dist = [
+    { name = "attrs", specifier = ">=26.1.0" },
     { name = "cyclopts", specifier = ">=5.1.1" },
     { name = "more-itertools", specifier = ">=11.1.0" },
     { name = "niquests", extras = ["speedups"], specifier = ">=3.21.2" },

@@ -59,8 +59,7 @@ logger = logging.getLogger(__name__)
 
 class Downloader:
     def __init__(self, input: Path, output: Path, cfg: Config) -> None:
-        """Instantiate a downloader instance, following the CLI args.
-        """
+        """Instantiate a downloader instance, following the CLI args."""
 
         self.cfg = cfg
         self.input = input

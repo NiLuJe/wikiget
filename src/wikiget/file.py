@@ -21,31 +21,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from attrs import define
 
 # FIXME: refactor that a bit once we move to cyclopts...
-# FIXME: Switch to attrs while doing that.
+@define
 class File:
     """A file object."""
-
-    def __init__(
-        self,
-        name: Path,
-        dest: Path | None,
-        url: str,
-    ) -> None:
-        """Initialize a new file with the given parameters.
-
-        Only the name is required. If a destination isn't specified, the provided name
-        will be used as the output name.
-
-        :param name: name of the file
-        :type name: str
-        :param dest: output name of the file; if not specified, defaults to name
-        :type dest: Path, optional
-        """
-        self.name = name
-        self.dest = dest or name
-        self.url = url
+    name: Path
+    dest: Path | None
+    url: str
 
     def __eq__(self, other: object) -> bool:
         """Compare this File object with another for equality.
@@ -55,29 +39,10 @@ class File:
         :return: True if the Files are equal and False otherwise
         :rtype: bool
         """
-        if not isinstance(other, File):
+        if other.__class__ is self.__class__:
+            return self.url == other.url
+        else:
             return NotImplemented
-        return self.url == other.url
-
-    def __str__(self) -> str:
-        """Return a basic string representation of this class, for str().
-
-        :return: string form of the class
-        :rtype: str
-        """
-        return str(self.__dict__)
-
-    def __repr__(self) -> str:
-        """Return a formal string representation of this class, for repr().
-
-        :return: string form of the class
-        :rtype: str
-        """
-        attr_list = [self.name, self.dest, self.url]
-        return '{}("{}")'.format(
-            self.__class__.__name__,
-            '", "'.join(map(str, attr_list)),
-        )
 
     def __hash__(self) -> int:
         return hash(self.url)
