@@ -117,6 +117,7 @@ def cli(
     input: Path | str,
     /,
     output: Directory | None = None,
+    *,
     logfile: Path | None = None,
     quiet: Annotated[bool, Parameter(group=verbosity)] = False,
     verbose: Annotated[int, Parameter(group=verbosity, count=True)] = 0,
