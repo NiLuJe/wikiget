@@ -114,8 +114,8 @@ flags = Group(
 @app.default
 def cli(
     input: Path | str,
-    output: Directory,
-    logfile: Path,
+    output: Directory | None = None,
+    logfile: Path | None = None,
     quiet: Annotated[bool, Parameter(group=verbosity)] = False,
     verbose: Annotated[int, Parameter(group=verbosity, count=True)] = 0,
     force: Annotated[bool, Parameter(group=flags)] = False,
