@@ -117,7 +117,7 @@ def cli(
     output: Directory,
     logfile: Path,
     quiet: Annotated[bool, Parameter(group=verbosity)] = False,
-    verbose: Annotated[bool, Parameter(group=verbosity)] = False,
+    verbose: Annotated[int, Parameter(group=verbosity, count=True)] = 0,
     force: Annotated[bool, Parameter(group=flags)] = False,
     batch: Annotated[bool, Parameter(group=flags)] = False,
     dry_run: Annotated[bool, Parameter(alias="-n", group=flags)] = False,

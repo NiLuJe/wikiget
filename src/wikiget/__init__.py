@@ -46,6 +46,6 @@ from wikiget.version import __version__
 # Set some global constants
 USER_AGENT = f"wikiget/{__version__} (https://github.com/NiLuJe/wikiget) niquests/{niquests_version}"
 # -v
-STD_VERBOSE = 1
+VERBOSE = 1
 # -vv
 VERY_VERBOSE = 2
