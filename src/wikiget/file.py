@@ -19,6 +19,7 @@
 
 from __future__ import annotations
 
+from functools import cached_property
 from pathlib import Path
 
 from attrs import define
@@ -30,8 +31,8 @@ class File:
     """A file object."""
 
     name: Path
-    dest: Path
     url: str
+    output_dir: Path | None
 
     def __eq__(self, other: object) -> bool:
         """Compare this File object with another for equality.
@@ -45,6 +46,13 @@ class File:
             return self.url == other.url
         else:
             return NotImplemented
+
+    @cached_property
+    def dest(self) -> Path:
+        if self.output_dir:
+            return self.output_dir / self.name
+        else:
+            return self.name
 
     def __hash__(self) -> int:
         return hash(self.url)
