@@ -133,6 +133,7 @@ def cli(
 
     # Log events are appended to the file if it already exists,
     # so, note the start of a new download session.
+    logger.info("***")
     logger.info("Starting download session using wikiget %s", WIKIGET_VERSION)
     logger.debug("User agent: %s", USER_AGENT)
 
