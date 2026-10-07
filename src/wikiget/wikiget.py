@@ -103,7 +103,8 @@ def cli(
         Name of the file to download, with the File: prefix;
         or the URL of its file description page.
     output:
-        Path in which to store the downloaded files.
+        Path in which to store the downloaded file;
+        or output directory in which to store the files in batch mode.
     """
 
     if cfg is None:
@@ -118,13 +119,17 @@ def cli(
         logger.critical("Cannot access input file `%s`!", str(input))
         return 1
 
-    # Create output directory
     if output:
-        output.mkdir(parents=True, exist_ok=False)
-        if not output.is_dir():
-            logger.critical("Output `%s` is not a directory!", str(output))
-        if not os.access(output, os.W_OK):
-            logger.critical("Output directory `%s` is not writable!", str(output))
+        if cfg.batch:
+            # Create & check the output directory in batch mode
+            output.mkdir(parents=True, exist_ok=False)
+            if not output.is_dir():
+                logger.critical("Output `%s` is not a directory!", str(output))
+            if not os.access(output, os.W_OK):
+                logger.critical("Output directory `%s` is not writable!", str(output))
+        else:
+            # In single-file mode, make sure the parent folder exists
+            output.parent.mkdir(parents=True, exist_ok=False)
 
     # Log events are appended to the file if it already exists,
     # so, note the start of a new download session.
