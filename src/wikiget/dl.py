@@ -79,7 +79,6 @@ class Downloader:
         )
 
         self.validate = Validator()
-        self.commons_base_url = "https://upload.wikimedia.org/wikipedia/commons"
 
         # And install our SIGINT handler
         self.done_event = Event()
@@ -132,22 +131,6 @@ class Downloader:
             console=self.console,
         )
 
-    def get_commons_url(self, filename: str) -> str:
-        # c.f., https://commons.wikimedia.org/wiki/Commons:FAQ#What_are_the_strangely_named_components_in_file_paths?
-        # Heavily inspired from CommonsDownloadTool's commons_file_url, c.f.,
-        # https://github.com/lingua-libre/CommonsDownloadTool/blob/b2653dc7f38d561d6034e460dcd0eb4e96fbef6c/commons_download_tool.py#L60C1-L90
-
-        if "/" in filename:
-            # Extract the final path component if need be
-            _, filename = filename.rsplit("/", 1)
-
-        # Ensure input is UTF-8, as that's how WM computes this
-        hashed_name = hashlib.md5(filename.encode("utf-8")).hexdigest()
-
-        file_path = f"{hashed_name[0]}/{hashed_name[:2]}/{filename}"
-
-        return f"{self.commons_base_url}/{file_path}"
-
     def get_file_info(self, dl: str) -> File:
         # First, check if the input isn't already a proper URL
         url = urlparse(dl)
@@ -166,16 +149,10 @@ class Downloader:
             # no file extension and/or prefix, probably an article
             raise ParseError(f"Could not parse input '{dl}' as a file")
 
-        # Remove anything that might have been URL-encoded for our local path
+        # Resolve anything that might be URL-encoded in there
         filename = unquote(filename)
 
-        # Get the canonical commons URL for that file
-        file_url = self.get_commons_url(filename.replace(" ", "_"))
-
-        filename = Path(filename)
-        # FIXME: Support prepending an output directory here
-        dest = filename
-        return File(filename, dest, file_url)
+        return File(filename)
 
     def prep_download(self, dl: str) -> File:
         """Prepare to download a file by parsing the filename or URL and CLI arguments.
@@ -229,9 +206,9 @@ class Downloader:
         # Setup our UA
         ua = {"user-agent": USER_AGENT}
 
-        # FIXME: Switch to base_url?
         # NOTE: There's currently only a single A record for upload.wikimedia.org,
         #       so, no need for happy eyeballs.
+        # NOTE: We *would* use base_url here, but for the fact that we actually support passing full URLs ;).
         # FIXME: Reimplement authentification (c.f., mwclient site_login)
         with (
             niquests.Session(multiplexed=True, retries=retry, headers=ua) as s,
