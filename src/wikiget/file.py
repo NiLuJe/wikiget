@@ -28,7 +28,7 @@ from typing import ClassVar
 from attrs import define, field
 
 # NOTE: Can you partial a class constructor, so we don't have to pass output_dir every time?
-@define(frozen=True, eq=True)
+@define(unsafe_hash=True)
 class File:
     """A file object."""
 
@@ -45,12 +45,10 @@ class File:
     def __attrs_post_init__(self):
         # NOTE: Validators have already run by then
         # Compute dest
-        #self.dest: Path = self._compute_dest()
-        object.__setattr__(self, "dest", self._compute_dest())
+        self.dest: Path = self._compute_dest()
 
         # Compute url
-        #self.url: str = self._compute_commons_url()
-        object.__setattr__(self, "url", self._compute_commons_url())
+        self.url: str = self._compute_commons_url()
 
     def _compute_dest(self) -> Path:
         if self.output:
