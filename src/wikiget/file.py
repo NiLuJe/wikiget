@@ -23,12 +23,13 @@ from __future__ import annotations
 
 import hashlib
 from pathlib import Path
-from re import Pattern
 import re
+from re import Pattern
 from typing import ClassVar
 from urllib.parse import unquote, urlparse
 
 from attrs import define, field
+
 
 # NOTE: Can you partial a class constructor, so we don't have to pass output_dir every time?
 # NOTE: We *are* pretty much immutable,

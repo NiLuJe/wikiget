@@ -23,7 +23,6 @@ from collections import Counter
 from collections.abc import Callable
 from datetime import timedelta
 from functools import partial
-import hashlib
 from itertools import batched
 import logging
 from pathlib import Path
@@ -273,7 +272,7 @@ class Downloader:
     def process_response(self, r: niquests.Response, f: File, progress: Progress, task: TaskID) -> None:
         """Fetch file information and contents if the file exists and save it to disk."""
 
-        filename = f.name
+        filename = f.filename
         # prepend the current filename to all log messages
         adapter = FileLogAdapter(logger, {"filename": filename})
 
