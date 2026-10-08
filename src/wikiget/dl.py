@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Callable
 from datetime import timedelta
 from functools import partial
 import hashlib
@@ -80,6 +81,11 @@ class Downloader:
 
         self.validate = Validator()
 
+        # All our File instances will use the same output,
+        # so, save us some typing down the line ;).
+        self.File: Callable[[str], File] = partial(File, output=output)
+
+        # TODO: Revisit that once async?
         # And install our SIGINT handler
         self.done_event = Event()
         signal.signal(signal.SIGINT, partial(self.handle_sigint))

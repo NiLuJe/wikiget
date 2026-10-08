@@ -79,7 +79,3 @@ class File:
         file_path = f"{hashed_name[0]}/{hashed_name[:2]}/{filename}"
 
         return f"{self.COMMONS_BASE_URL}/{file_path}"
-
-    @classmethod
-    def for_output(cls, output: Path, *args, **kwargs) -> File:
-        return cls(*args, output=output, **kwargs)
