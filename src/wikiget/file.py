@@ -31,7 +31,6 @@ from urllib.parse import quote, unquote, urlparse
 from attrs import define, field
 
 
-# NOTE: Can you partial a class constructor, so we don't have to pass output_dir every time?
 # NOTE: We *are* pretty much immutable,
 #       but specifying frozen here would make our post_init clunky
 #       by requiring going through object.__setattr__ to bypass attrs own guard...
