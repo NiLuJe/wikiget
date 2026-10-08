@@ -28,6 +28,10 @@ from typing import ClassVar
 from attrs import define, field
 
 # NOTE: Can you partial a class constructor, so we don't have to pass output_dir every time?
+# NOTE: We *are* pretty much immutable,
+#       but specifying frozen here would make our post_init clunky
+#       by requiring going through object.__setattr__ to bypass attrs own guard...
+#       And ultimately, we very much *do* want hashing and equality by url *value*.
 @define(unsafe_hash=True)
 class File:
     """A file object."""
