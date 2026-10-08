@@ -41,6 +41,7 @@ class File:
     """A file object."""
 
     COMMONS_BASE_URL: ClassVar[str] = "https://upload.wikimedia.org/wikipedia/commons"
+    COMMONS_QUERY: ClassVar[str] = "utm_source=commons.wikimedia.org&utm_campaign=index&utm_content=original"
     FILENAME_RE: ClassVar[Pattern] = re.compile(r"(File:|Image:)([^/\r\n\t\f\v]+\.\w+)$", re.I)
     COMMONS_WIKI_URL: ClassVar[str] = "https://commons.wikimedia.org/wiki"
     IMAGE_FORMATS: ClassVar[frozenset[str]] = frozenset({".jpg", ".jpeg", ".png", ".pnm", ".gif"})
@@ -76,7 +77,8 @@ class File:
         # Compute url, if input wasn't already one
         if not hasattr(self, "url"):
             self.url: str = self._compute_commons_url()
-            self.headers = {"referer": quote(self._compute_referer_url())}
+            # NOTE: Shouldn't this be URL-encoded?
+            self.headers = {"referer": self._compute_referer_url()}
 
     def _get_filename(self) -> str:
         # First, check if the input isn't already a proper URL
@@ -125,7 +127,7 @@ class File:
 
         file_path = f"{hashed_name[0]}/{hashed_name[:2]}/{filename}"
 
-        return f"{self.COMMONS_BASE_URL}/{file_path}"
+        return f"{self.COMMONS_BASE_URL}/{quote(file_path)}?{self.COMMONS_QUERY}"
 
     def _compute_referer_url(self) -> str:
         # Poor man's format detection
