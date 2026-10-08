@@ -83,14 +83,14 @@ def cli(
     if output:
         if cfg.batch:
             # Create & check the output directory in batch mode
-            output.mkdir(parents=True, exist_ok=False)
+            output.mkdir(parents=True, exist_ok=True)
             if not output.is_dir():
                 logger.critical("Output `%s` is not a directory!", str(output))
             if not os.access(output, os.W_OK):
                 logger.critical("Output directory `%s` is not writable!", str(output))
         else:
             # In single-file mode, make sure the parent folder exists
-            output.parent.mkdir(parents=True, exist_ok=False)
+            output.parent.mkdir(parents=True, exist_ok=True)
 
     # Log events are appended to the file if it already exists,
     # so, note the start of a new download session.
