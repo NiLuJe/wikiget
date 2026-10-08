@@ -26,7 +26,7 @@ from pathlib import Path
 import re
 from re import Pattern
 from typing import ClassVar
-from urllib.parse import unquote, urlparse
+from urllib.parse import quote, unquote, urlparse
 
 from attrs import define, field
 
@@ -42,6 +42,8 @@ class File:
 
     COMMONS_BASE_URL: ClassVar[str] = "https://upload.wikimedia.org/wikipedia/commons"
     FILENAME_RE: ClassVar[Pattern] = re.compile(r"(File:|Image:)([^/\r\n\t\f\v]+\.\w+)$", re.I)
+    COMMONS_WIKI_URL: ClassVar[str] = "https://commons.wikimedia.org/wiki"
+    IMAGE_FORMATS: ClassVar[frozenset[str]] = frozenset({".jpg", ".jpeg", ".png", ".pnm", ".gif"})
 
     input: str = field(eq=False)
     output: Path | None = field(default=None, eq=False)
@@ -51,6 +53,7 @@ class File:
     filename: Path = field(init=False, eq=False)
     dest: Path = field(init=False, eq=False)
     url: str = field(init=False, eq=True)
+    headers: dict[str, str] | None = field(default=None, init=False, eq=False)
 
     def __attrs_post_init__(self) -> None:
         # NOTE: Validators have already run by then
@@ -73,6 +76,7 @@ class File:
         # Compute url, if input wasn't already one
         if not hasattr(self, "url"):
             self.url: str = self._compute_commons_url()
+            self.headers = {"referer": quote(self._compute_referer_url())}
 
     def _get_filename(self) -> str:
         # First, check if the input isn't already a proper URL
@@ -114,7 +118,7 @@ class File:
         # https://github.com/lingua-libre/CommonsDownloadTool/blob/b2653dc7f38d561d6034e460dcd0eb4e96fbef6c/commons_download_tool.py#L60C1-L90
 
         # Work on the final path component
-        filename = str(self.filename.name).replace(" ", "_")
+        filename = self.filename.name.replace(" ", "_")
 
         # Ensure input is UTF-8, as that's how WM computes this
         hashed_name = hashlib.md5(filename.encode("utf-8")).hexdigest()
@@ -122,3 +126,12 @@ class File:
         file_path = f"{hashed_name[0]}/{hashed_name[:2]}/{filename}"
 
         return f"{self.COMMONS_BASE_URL}/{file_path}"
+
+    def _compute_referer_url(self) -> str:
+        # Poor man's format detection
+        if self.IMAGE_FORMATS & frozenset(map(str.lower, self.filename.suffixes)):
+            prefix = "Image"
+        else:
+            prefix = "File"
+
+        return f"{self.COMMONS_WIKI_URL}/{prefix}:{self.filename.name.replace(' ', '_')}"

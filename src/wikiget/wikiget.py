@@ -46,6 +46,7 @@ app = App(
 # Install rich traceback handler using the error console
 install_rich_traceback(console=error_console)
 
+
 @app.default
 def cli(
     input: StdioPath,
