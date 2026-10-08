@@ -136,7 +136,7 @@ class Downloader:
         )
 
     def get_file_info(self, dl: str) -> File:
-        f = File(dl)
+        f = self.File(dl)
 
         if not hasattr(f, "filename"):
             # no file extension and/or prefix, probably an article
