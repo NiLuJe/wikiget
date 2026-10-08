@@ -27,16 +27,12 @@ from typing import Annotated
 
 from cyclopts import App, Group, Parameter, config, validators
 from cyclopts.types import Directory, PositiveInt, StdioPath
-from rich.console import Console
-from rich.traceback import install as install_rich_traceback
 
 from . import USER_AGENT
 from . import __version__ as WIKIGET_VERSION
 from .dl import Downloader
-from .logging import configure_logging
+from .logging import configure_logging, console, error_console
 
-console = Console()
-error_console = Console(stderr=True)
 app = App(
     console=console,
     error_console=error_console,
@@ -47,9 +43,6 @@ app = App(
 )
 # NOTE: This adds a seemingly-required COMMAND placeholder in the USAGE string :/
 # app.register_install_completion_command()
-
-# Install verbose rich traceback handler using the error console
-install_rich_traceback(console=error_console, show_locals=True)
 
 verbosity = Group(
     "Verbosity",

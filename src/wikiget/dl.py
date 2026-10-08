@@ -49,10 +49,10 @@ from rich.progress import (
 from . import USER_AGENT
 from .exceptions import ParseError
 from .file import File
-from .logging import FileLogAdapter
+from .logging import FileLogAdapter, console
 from .parse import batch_files, batch_size
 from .validations import Validator
-from .wikiget import Config, console
+from .wikiget import Config
 
 logger = logging.getLogger(__name__)
 
@@ -159,7 +159,7 @@ class Downloader:
 
         # check if the destination file already exists; don't overwrite unless the user says
         if file.dest.is_file() and file.dest.stat().st_size != 0 and not self.force_redownload:
-            msg = f"[{file.dest}] File already exists; skipping download (use -f to force)"
+            msg = f"[{file.dest}] File already exists; skipping download"
             raise FileExistsError(msg)
 
         return file

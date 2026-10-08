@@ -24,7 +24,13 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from rich.console import Console
+from rich.logging import RichHandler
+
 from . import VERBOSE, VERY_VERBOSE
+
+console = Console()
+error_console = Console(stderr=True)
 
 
 class FileLogAdapter(logging.LoggerAdapter[logging.Logger]):
@@ -63,7 +69,7 @@ def configure_logging(verbosity: int, logfile: Path | None, *, quiet: bool) -> N
     logger.setLevel(logging.DEBUG)
 
     # set up console logging
-    ch = logging.StreamHandler()
+    ch = RichHandler(console=console, rich_tracebacks=True, tracebacks_show_locals=True)
     ch.setLevel(loglevel)
     ch.setFormatter(logging.Formatter(console_log_format))
     logger.addHandler(ch)
