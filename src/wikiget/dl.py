@@ -252,7 +252,7 @@ class Downloader:
         return 1 if errors else 0
 
     def query_filename(self, line_num: int, line: str) -> File | None:
-        """Prepare a download and query Commons for the canonical download URL
+        """Prepare a download and compute the canonical Commons download URL
 
         Returns a File instance on success or None on failure.
         """
