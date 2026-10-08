@@ -23,7 +23,10 @@ from __future__ import annotations
 
 import hashlib
 from pathlib import Path
+from re import Pattern
+import re
 from typing import ClassVar
+from urllib.parse import unquote, urlparse
 
 from attrs import define, field
 
@@ -37,22 +40,61 @@ class File:
     """A file object."""
 
     COMMONS_BASE_URL: ClassVar[str] = "https://upload.wikimedia.org/wikipedia/commons"
+    FILENAME_RE: ClassVar[Pattern] = re.compile(r"(File:|Image:)([^/\r\n\t\f\v]+\.\w+)$", re.I)
 
-    filename: Path = field(converter=Path, eq=False)
+    input: str = field(eq=False)
     output: Path | None = field(default=None, eq=False)
     # NOTE: attrs creates slotted classes by default,
     #       so we need to declare them for them to get a slot,
     #       as we only ever populate them @ post_init.
+    filename: Path = field(init=False, eq=False)
     dest: Path = field(init=False, eq=False)
     url: str = field(init=False, eq=True)
 
-    def __attrs_post_init__(self):
+    def __attrs_post_init__(self) -> None:
         # NOTE: Validators have already run by then
+
+        # Extract & validate the filename
+        filename = self._get_filename()
+        filename = self._validate_filename(filename)
+
+        if filename is None:
+            # We failed validation, bail out early,
+            # caller will detect this and throw
+            return
+
+        # Resolve anything that might be URL-encoded in there
+        self.filename = Path(unquote(filename))
+
         # Compute dest
         self.dest: Path = self._compute_dest()
 
-        # Compute url
-        self.url: str = self._compute_commons_url()
+        # Compute url, if input wasn't already one
+        if not hasattr(self, "url"):
+            self.url: str = self._compute_commons_url()
+
+    def _get_filename(self) -> str:
+        # First, check if the input isn't already a proper URL
+        url = urlparse(self.input)
+
+        if url.netloc:
+            filename = url.path
+            # NOTE: query & fragment get dropped
+            self.url = f"{url.scheme}://{url.netloc}{url.path}"
+        else:
+            filename = self.input
+
+        return filename
+
+    def _validate_filename(self, filename: str) -> str | None:
+        # Check if this looks like a valid WikiMedia file
+        file_match = self.FILENAME_RE.search(filename)
+        if file_match and file_match.group(1):
+            # Has File:/Image: prefix and extension
+            return file_match.group(2)
+        else:
+            # No file extension and/or prefix, probably an article
+            return None
 
     def _compute_dest(self) -> Path:
         if self.output:
@@ -63,7 +105,7 @@ class File:
                 # i.e., single-file mode
                 return self.output
         else:
-            return self.filename
+            return Path(self.filename)
 
     def _compute_commons_url(self) -> str:
         # c.f., https://commons.wikimedia.org/wiki/Commons:FAQ#What_are_the_strangely_named_components_in_file_paths?

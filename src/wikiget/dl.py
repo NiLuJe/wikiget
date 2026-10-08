@@ -31,7 +31,6 @@ import signal
 from threading import Event
 from types import FrameType
 from typing import Any
-from urllib.parse import unquote, urlparse
 
 from cyclopts.types import StdioPath
 import niquests
@@ -138,27 +137,13 @@ class Downloader:
         )
 
     def get_file_info(self, dl: str) -> File:
-        # First, check if the input isn't already a proper URL
-        url = urlparse(dl)
+        f = File(dl)
 
-        if url.netloc:
-            filename = url.path
-        else:
-            filename = dl
-
-        # Check if this looks like a valid WikiMedia file
-        file_match = self.validate.file(filename)
-        if file_match and file_match.group(1):
-            # has File:/Image: prefix and extension
-            filename = file_match.group(2)
-        else:
+        if not hasattr(f, "filename"):
             # no file extension and/or prefix, probably an article
             raise ParseError(f"Could not parse input '{dl}' as a file")
 
-        # Resolve anything that might be URL-encoded in there
-        filename = unquote(filename)
-
-        return File(filename)
+        return f
 
     def prep_download(self, dl: str) -> File:
         """Prepare to download a file by parsing the filename or URL and CLI arguments.

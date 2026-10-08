@@ -26,25 +26,7 @@ import re
 
 class Validator:
     def __init__(self) -> None:
-        # second group could also restrict to file extensions
-        # with three or more letters with ([^/\r\n\t\f\v]+\.\w{3,})
-        self.file_re = re.compile(r"(File:|Image:)([^/\r\n\t\f\v]+\.\w+)$", re.I)
         self.site_re = re.compile(r"wiki[mp]edia\.org$", re.I)
-
-    def file(self, search_string: str) -> re.Match | None:
-        """Determine if the given string contains a valid file name.
-
-        A valid file name is a string that begins with 'File:' or 'Image:' (the standard
-        file prefixes in MediaWiki), includes a period, and has at least one character
-        following the period, like 'File:Example.jpg' or 'Image:Example.svg'.
-
-        :param search_string: string to validate
-        :type search_string: str
-        :returns: a regex Match object if there's a match or None otherwise
-        :rtype: re.Match
-        """
-
-        return self.file_re.search(search_string)
 
     def site(self, search_string: str) -> re.Match | None:
         """Determine if the given string contains a valid site name.
