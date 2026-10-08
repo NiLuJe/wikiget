@@ -62,7 +62,7 @@ def configure_logging(verbosity: int, logfile: Path | None, *, quiet: bool) -> N
     # configure logging:
     # console log level is set via -v, -vv, and -q options;
     # file log level is always debug (TODO: make this user configurable)
-    console_log_format = "[%(levelname)s] %(message)s"
+    console_log_format = "%(message)s"
     file_log_format = "%(asctime)s [%(levelname)-7s] %(message)s"
 
     logger = logging.getLogger("")  # root logger
