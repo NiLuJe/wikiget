@@ -28,27 +28,29 @@ from typing import ClassVar
 from attrs import define, field
 
 # NOTE: Can you partial a class constructor, so we don't have to pass output_dir every time?
-@define
+@define(frozen=True, eq=True)
 class File:
     """A file object."""
 
     COMMONS_BASE_URL: ClassVar[str] = "https://upload.wikimedia.org/wikipedia/commons"
 
-    filename: Path = field(converter=Path)
-    output: Path | None = None
+    filename: Path = field(converter=Path, eq=False)
+    output: Path | None = field(default=None, eq=False)
     # NOTE: attrs creates slotted classes by default,
     #       so we need to declare them for them to get a slot,
     #       as we only ever populate them @ post_init.
-    dest: Path = field(init=False)
-    url: str = field(init=False)
+    dest: Path = field(init=False, eq=False)
+    url: str = field(init=False, eq=True)
 
     def __attrs_post_init__(self):
         # NOTE: Validators have already run by then
         # Compute dest
-        self.dest: Path = self._compute_dest()
+        #self.dest: Path = self._compute_dest()
+        object.__setattr__(self, "dest", self._compute_dest())
 
         # Compute url
-        self.url: str = self._compute_commons_url()
+        #self.url: str = self._compute_commons_url()
+        object.__setattr__(self, "url", self._compute_commons_url())
 
     def _compute_dest(self) -> Path:
         if self.output:
@@ -79,19 +81,3 @@ class File:
     @classmethod
     def for_output(cls, output: Path, *args, **kwargs) -> File:
         return cls(*args, output=output, **kwargs)
-
-    def __eq__(self, other: object) -> bool:
-        """Compare this File object with another for equality.
-
-        :param other: another File to compare
-        :type other: wikiget.file.File
-        :return: True if the Files are equal and False otherwise
-        :rtype: bool
-        """
-        if other.__class__ is self.__class__:
-            return self.url == other.url
-        else:
-            return NotImplemented
-
-    def __hash__(self) -> int:
-        return hash(self.url)
