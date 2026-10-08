@@ -24,6 +24,7 @@ import os
 
 from cyclopts import App, Parameter, config
 from cyclopts.types import Directory, StdioPath
+from rich.traceback import install as install_rich_traceback
 
 from . import USER_AGENT
 from . import __version__ as WIKIGET_VERSION
@@ -42,6 +43,8 @@ app = App(
 # NOTE: This adds a seemingly-required COMMAND placeholder in the USAGE string :/
 # app.register_install_completion_command()
 
+# Install rich traceback handler using the error console
+install_rich_traceback(console=error_console)
 
 @app.default
 def cli(

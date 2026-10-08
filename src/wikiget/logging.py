@@ -69,7 +69,7 @@ def configure_logging(verbosity: int, logfile: Path | None, *, quiet: bool) -> N
     logger.setLevel(logging.DEBUG)
 
     # set up console logging
-    ch = RichHandler(console=console, rich_tracebacks=True, tracebacks_show_locals=True)
+    ch = RichHandler(console=console)
     ch.setLevel(loglevel)
     ch.setFormatter(logging.Formatter(console_log_format))
     logger.addHandler(ch)
