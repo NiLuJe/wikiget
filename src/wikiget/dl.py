@@ -47,12 +47,12 @@ from rich.progress import (
 )
 
 from . import USER_AGENT
+from .config import Config
 from .exceptions import ParseError
 from .file import File
 from .logging import FileLogAdapter, console
 from .parse import batch_files, batch_size
 from .validations import Validator
-from .wikiget import Config
 
 logger = logging.getLogger(__name__)
 
