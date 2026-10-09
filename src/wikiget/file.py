@@ -17,10 +17,6 @@
 
 """Define a File class for representing individual files to be downloaded."""
 
-# NOTE: Drop this once we raise the minimum Python version to 3.14,
-#       because PEP 649 & PEP 749 finally sloved this mess.
-from __future__ import annotations
-
 import hashlib
 from pathlib import Path
 import re

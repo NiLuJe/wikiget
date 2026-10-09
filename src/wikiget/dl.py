@@ -17,8 +17,6 @@
 
 """Prepare and process file downloads."""
 
-from __future__ import annotations
-
 from collections import Counter
 from collections.abc import Callable
 from datetime import timedelta
@@ -195,7 +193,7 @@ class Downloader:
             self.progress_bar() as progress,
         ):
             overall_task = overall_progress.add_task("Download...", total=batch_size(self.input))
-            for batch in batched(batch_files(self.input), self.concurrency):
+            for batch in batched(batch_files(self.input), self.concurrency, strict=False):
                 # Abort early w/o inflating the error count if we caught a SIGINT
                 if self.done_event.is_set():
                     break

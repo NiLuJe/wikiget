@@ -11,24 +11,10 @@ file name or the URL of its description page.
 
 ## Installation
 
-Requires Python 3.12+ and pip. Install the latest version with:
+Requires Python 3.14+ and uv. Install the latest version with:
 
 ```bash
-pip install wikiget
-```
-
-For the latest features, at the risk of bugs and undocumented behavior, you can install the development version directly
-from [GitHub]:
-
-```bash
-pip install https://github.com/NiLuJe/wikiget/archive/refs/heads/master.zip
-```
-
-Alternatively, if you have [Homebrew] installed:
-
-```bash
-brew tap clpo13/clpo13
-brew install wikiget
+uv pip install "git+https://github.com/NiLuJe/wikiget@commons-only"
 ```
 
 ## Usage

@@ -17,8 +17,6 @@
 
 """Configure program log configuration and adapters."""
 
-from __future__ import annotations
-
 from collections.abc import MutableMapping
 import logging
 from pathlib import Path

@@ -17,8 +17,6 @@
 
 """Set up the command-line interface and handle program start and exit."""
 
-from __future__ import annotations
-
 import logging
 import os
 

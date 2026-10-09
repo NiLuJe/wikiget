@@ -26,8 +26,6 @@ classifiers = [
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.12",
-  "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
 ]
 keywords = ["commons", "mediawiki", "wikimedia", "wikipedia"]
@@ -39,7 +37,7 @@ dependencies = [
   "niquests[speedups]>=3.21.2",
   "rich>=15.0.0",
 ]
-requires-python = ">= 3.12"
+requires-python = ">= 3.14"
 
 [dependency-groups]
 dev = [
