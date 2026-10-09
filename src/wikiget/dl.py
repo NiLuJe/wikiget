@@ -206,7 +206,7 @@ class Downloader:
                 }
                 # Start tasks ASAP so we get an accurate elapsed time
                 tasks = {
-                    file: progress.add_task("download", filename=str(file.dest), total=None)
+                    file: progress.add_task("download", filename=str(file.dest.name), total=None)
                     for file in downloads.values()
                     if file
                 }
@@ -221,7 +221,7 @@ class Downloader:
                         self.process_response(r, file, progress, task)
                     finally:
                         r.close()
-                        # NOTE: A single Progress instance will only ever show as much tasks as the terminal height allows...
+                        # NOTE: A single Progress instance will only ever show as many tasks as the terminal height allows...
                         #       Drop completed tasks to free up space.
                         progress.remove_task(task)
                         overall_progress.advance(overall_task)
@@ -236,7 +236,7 @@ class Downloader:
                 "s"[: warnings ^ 1],
             )
 
-        # return a non-zero exit code if any meaningful problems were encountered,
+        # Return a non-zero exit code if any meaningful problems were encountered,
         # even if some downloads completed successfully
         return 1 if errors else 0
 
