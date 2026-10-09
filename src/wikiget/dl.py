@@ -52,7 +52,6 @@ from .exceptions import ParseError
 from .file import File
 from .logging import FileLogAdapter, console
 from .parse import batch_files, batch_size
-from .validations import Validator
 
 logger = logging.getLogger(__name__)
 
@@ -76,8 +75,6 @@ class Downloader:
                 "warnings": 0,
             }
         )
-
-        self.validate = Validator()
 
         # All our File instances will use the same output,
         # so, save us some typing down the line ;).
@@ -336,7 +333,7 @@ class Downloader:
 
         # Verify file integrity and log the details
         try:
-            dl_hash = self.validate.hash(dest)
+            hash_ok = f.matches_checksum(file_hash)
         except OSError as e:
             adapter.error(f"File downloaded but could not be verified: {e}")
             dest.unlink()
@@ -344,11 +341,8 @@ class Downloader:
             progress.console.log(f"[bold red]FAILED[/] to verify downloaded [bold magenta]{filename}[/]")
             return
 
-        adapter.info(f"Remote file hash is {file_hash}")
-        adapter.info(f"Local file hash is {dl_hash}")
-        if dl_hash == file_hash:
-            adapter.info("Hashes match!")
-            # at this point, we've successfully downloaded the file
+        if hash_ok:
+            # At this point, we've successfully downloaded the file
             success_log = f"'{filename}' downloaded"
             if self.output:
                 success_log += f" to '{dest}'"

@@ -32,6 +32,7 @@ from attrs import define, field
 
 from .exceptions import ParseError
 
+
 # NOTE: We *are* pretty much immutable,
 #       but specifying frozen here would make our post_init clunky
 #       by requiring going through object.__setattr__ to bypass attrs own guard...
@@ -88,6 +89,8 @@ class File:
             filename = url.path
             # NOTE: query & fragment get dropped
             self.url = f"{url.scheme}://{url.netloc}{url.path}"
+            # NOTE: Since we no longer use the API,
+            #       we also no longer validate that netloc looks like a WM domain.
         else:
             filename = self.input
 
@@ -140,3 +143,8 @@ class File:
             prefix = "File"
 
         return f"{self.COMMONS_WIKI_URL}/{prefix}:{self.filename.name.replace(' ', '_')}"
+
+    def matches_checksum(self, md5_hash: str) -> bool:
+        with self.dest.open("rb") as f:
+            digest = hashlib.file_digest(f, hashlib.md5)
+        return digest.hexdigest() == md5_hash
