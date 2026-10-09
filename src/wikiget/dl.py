@@ -31,7 +31,6 @@ from typing import TYPE_CHECKING
 
 from mwclient import APIError, InvalidResponse, LoginError, Site
 from requests import ConnectionError, HTTPError
-from rich.console import Console
 from rich.progress import (
     BarColumn,
     DownloadColumn,
@@ -47,7 +46,7 @@ from rich.progress import (
 
 from wikiget.client import connect_to_site, query_api
 from wikiget.exceptions import ParseError
-from wikiget.logging import FileLogAdapter
+from wikiget.logging import FileLogAdapter, console
 from wikiget.parse import get_dest, batch_files, batch_size
 from wikiget.validations import verify_hash
 
@@ -76,7 +75,7 @@ class Downloader:
 
         self.sites: dict[str, Site] = {}
         self.sites_lock = Lock()
-        self.console = Console()
+        self.console = console
 
         self.status = Counter({
             "errors": 0,
@@ -120,7 +119,7 @@ class Downloader:
 
         # check if the destination file already exists; don't overwrite unless the user says
         if file.dest.is_file() and file.dest.stat().st_size != 0 and not self.force_redownload:
-            msg = f"[{file.dest}] File already exists; skipping download (use -f to force)"
+            msg = f"[{file.dest}] File already exists; skipping download"
             raise FileExistsError(msg)
 
         return file

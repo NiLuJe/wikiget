@@ -24,10 +24,14 @@ import logging
 import os
 import sys
 
+from rich.traceback import install as install_rich_traceback
+
 import wikiget
 from wikiget.dl import Downloader
-from wikiget.logging import configure_logging
+from wikiget.logging import configure_logging, error_console
 
+# Install verbose rich traceback handler using the error console
+install_rich_traceback(console=error_console, show_locals=True)
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
     """Parse the given argument list.

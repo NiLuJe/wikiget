@@ -22,8 +22,13 @@ from __future__ import annotations
 import logging
 from typing import Any, MutableMapping
 
+from rich.console import Console
+from rich.logging import RichHandler
+
 import wikiget
 
+console = Console()
+error_console = Console(stderr=True)
 
 class FileLogAdapter(logging.LoggerAdapter):
     def process(
@@ -54,14 +59,14 @@ def configure_logging(verbosity: int, logfile: str, *, quiet: bool) -> None:
     # configure logging:
     # console log level is set via -v, -vv, and -q options;
     # file log level is always debug (TODO: make this user configurable)
-    console_log_format = "[%(levelname)s] %(message)s"
+    console_log_format = "%(message)s"
     file_log_format = "%(asctime)s [%(levelname)-7s] %(message)s"
 
     logger = logging.getLogger("")  # root logger
     logger.setLevel(logging.DEBUG)
 
     # set up console logging
-    ch = logging.StreamHandler()
+    ch = RichHandler(console=console)
     ch.setLevel(loglevel)
     ch.setFormatter(logging.Formatter(console_log_format))
     logger.addHandler(ch)
