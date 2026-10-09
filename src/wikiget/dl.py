@@ -260,12 +260,11 @@ class Downloader:
 
         return file
 
-    def process_response(self, r: niquests.Response, f: File, progress: Progress, task: TaskID) -> None:
+    def process_response(self, r: niquests.Response, file: File, progress: Progress, task: TaskID) -> None:
         """Fetch file information and contents if the file exists and save it to disk."""
 
-        filename = f.filename
         # prepend the current filename to all log messages
-        adapter = FileLogAdapter(logger, {"filename": filename})
+        adapter = FileLogAdapter(logger, {"filename": file.filename})
 
         # Minimal error handling
         try:
@@ -278,29 +277,25 @@ class Downloader:
             adapter.error(f"File could not be downloaded: {e}")
             self.increment_errors()
             progress.console.log(
-                f"[bold red]FAILED[/] to download [bold magenta]{filename}[/] ([bold yellow]{r.status_code}[/])"
+                f"[bold red]FAILED[/] to download [bold magenta]{file.filename}[/] ([bold yellow]{r.status_code}[/])"
             )
             return
 
-        dest = f.dest
-        file_url = f.url
-        file_size = int(r.headers.get("content-length", 0))  # int(str(r.oheaders.content_length))
+        remote_size = int(r.headers.get("content-length", 0))  # int(str(r.oheaders.content_length))
         # Poor man's hash check, MD5
-        file_hash = str(r.oheaders.etag)
+        remote_hash = str(r.oheaders.etag)
 
-        filename_log = f"Downloading '{filename}' ({file_size} bytes)"
-        if self.output:
-            filename_log += f" to '{dest}'"
+        filename_log = f"Downloading '{file.filename}' ({remote_size} bytes)"
         adapter.info(filename_log)
-        adapter.info(f"{file_url}")
+        adapter.info(f"{file.url}")
 
         if self.dry_run:
             adapter.warning("Dry run; download skipped")
             return
 
         try:
-            progress.update(task, total=file_size)
-            with dest.open("wb") as fd:
+            progress.update(task, total=remote_size)
+            with file.dest.open("wb") as fd:
                 for chunk in r.iter_content():
                     fd.write(chunk)
                     if r.download_progress:
@@ -311,8 +306,8 @@ class Downloader:
                     # Clean up on SIGINT, so we don't leave incomplete files around
                     if self.done_event.is_set():
                         adapter.error("Caught a SIGINT, aborting")
-                        dest.unlink()
-                        progress.console.log(f"[bold red]Aborted[/] [bold magenta]{filename}[/] download")
+                        file.dest.unlink()
+                        progress.console.log(f"[bold red]Aborted[/] [bold magenta]{file.filename}[/] download")
                         return
 
                 # Pull the elapsed time for our task out of rich's guts...
@@ -323,34 +318,34 @@ class Downloader:
                 else:
                     # NOTE: Its str dunder will do the formatting for us :)
                     delta = timedelta(seconds=max(0, round(elapsed)))
-                progress.console.log(f"Downloaded [bold magenta]{filename}[/] in [bold yellow]{delta}[/]")
+                progress.console.log(f"Downloaded [bold magenta]{file.filename}[/] in [bold yellow]{delta}[/]")
         except OSError as e:
             adapter.error(f"File could not be written: {e}")
-            dest.unlink(missing_ok=True)
+            file.dest.unlink(missing_ok=True)
             self.increment_errors()
-            progress.console.log(f"[bold red]FAILED[/] to write local file for [bold magenta]{filename}[/]")
+            progress.console.log(f"[bold red]FAILED[/] to write local file for [bold magenta]{file.filename}[/]")
             return
 
         # Verify file integrity and log the details
         try:
-            hash_ok = f.matches_checksum(file_hash)
+            hash_ok = file.matches_checksum(remote_hash)
         except OSError as e:
             adapter.error(f"File downloaded but could not be verified: {e}")
-            dest.unlink()
+            file.dest.unlink()
             self.increment_errors()
-            progress.console.log(f"[bold red]FAILED[/] to verify downloaded [bold magenta]{filename}[/]")
+            progress.console.log(f"[bold red]FAILED[/] to verify downloaded [bold magenta]{file.filename}[/]")
             return
 
         if hash_ok:
             # At this point, we've successfully downloaded the file
-            success_log = f"'{filename}' downloaded"
+            success_log = f"'{file.filename}' downloaded"
             if self.output:
-                success_log += f" to '{dest}'"
+                success_log += f" to '{file.dest}'"
             adapter.info(success_log)
         else:
             adapter.error("Hash mismatch! Downloaded file may be corrupt.")
-            dest.unlink()
+            file.dest.unlink()
             self.increment_errors()
-            progress.console.log(f"[bold red]CORRUPT[/] download for [bold magenta]{filename}[/]")
+            progress.console.log(f"[bold red]CORRUPT[/] download for [bold magenta]{file.filename}[/]")
 
         return
