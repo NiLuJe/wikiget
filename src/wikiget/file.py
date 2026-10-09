@@ -30,6 +30,7 @@ from urllib.parse import quote, unquote, urlparse
 
 from attrs import define, field
 
+from .exceptions import ParseError
 
 # NOTE: We *are* pretty much immutable,
 #       but specifying frozen here would make our post_init clunky
@@ -92,7 +93,10 @@ class File:
 
         return filename
 
-    def _validate_filename(self, filename: str) -> str | None:
+    # NOTE: This could *almost* be an attrs validator,
+    #       but it depends on _get_filename having already run,
+    #       so best do it this way...
+    def _validate_filename(self, filename: str) -> str:
         # Check if this looks like a valid WikiMedia file
         file_match = self.FILENAME_RE.search(filename)
         if file_match and file_match.group(1):
@@ -100,7 +104,7 @@ class File:
             return file_match.group(2)
         else:
             # No file extension and/or prefix, probably an article
-            return None
+            raise ParseError(f"Could not parse input `{filename}` as a valid WikiMedia file")
 
     def _compute_dest(self) -> Path:
         if self.output:

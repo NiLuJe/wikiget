@@ -135,27 +135,19 @@ class Downloader:
             console=self.console,
         )
 
-    def get_file_info(self, dl: str) -> File:
-        f = self.File(dl)
-
-        if not hasattr(f, "filename"):
-            # no file extension and/or prefix, probably an article
-            raise ParseError(f"Could not parse input '{dl}' as a file")
-
-        return f
-
     def prep_download(self, dl: str) -> File:
-        """Prepare to download a file by parsing the filename or URL and CLI arguments.
+        """Prepare to download a file by parsing the filename or URL.
 
         :param dl: a string representing the file or URL to download
         :type dl: str
-        :param args: command-line arguments and their values
-        :type args: argparse.Namespace
         :raises FileExistsError: the destination file already exists on disk
         :return: a File object representing the file to download
         :rtype: wikiget.file.File
         """
-        file = self.get_file_info(dl)
+        try:
+            file = self.File(dl)
+        except ParseError:
+            raise
 
         # check if the destination file already exists; don't overwrite unless the user says
         if file.dest.is_file() and file.dest.stat().st_size != 0 and not self.force_redownload:
@@ -257,11 +249,11 @@ class Downloader:
         Returns a File instance on success or None on failure.
         """
 
-        logger.info("Processing '%s' at line %i", line, line_num)
+        logger.info("Processing '%s' @ line %i", line, line_num)
         try:
             file = self.prep_download(line)
         except ParseError as e:
-            logger.error("%s (line %i)", str(e), line_num)
+            logger.error("%s (@ line %i)", str(e), line_num)
             self.increment_errors()
             file = None
         except FileExistsError as e:
