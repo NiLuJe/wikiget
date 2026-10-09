@@ -18,7 +18,6 @@
 """Prepare and process file downloads."""
 
 from collections import Counter
-from collections.abc import Callable
 from datetime import timedelta
 from functools import partial
 from itertools import batched
@@ -73,10 +72,6 @@ class Downloader:
                 "warnings": 0,
             }
         )
-
-        # All our File instances will use the same output,
-        # so, save us some typing down the line ;).
-        self.File: Callable[[str], File] = partial(File, output=output)
 
         # TODO: Revisit that once async?
         # And install our SIGINT handler
@@ -140,7 +135,7 @@ class Downloader:
         :rtype: wikiget.file.File
         """
         try:
-            file = self.File(dl)
+            file = File(dl, output=self.output)
         except ParseError:
             raise
 
