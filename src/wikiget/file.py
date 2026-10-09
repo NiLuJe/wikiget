@@ -42,8 +42,8 @@ class File:
     """A file object."""
 
     COMMONS_BASE_URL: ClassVar[str] = "https://upload.wikimedia.org/wikipedia/commons"
-    # NOTE: Use the same utm_campaign as an API query; browsing the actual info page sets this to index instead
-    COMMONS_URL_QUERY: ClassVar[str] = "utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
+    # NOTE: Use the same utm_campaign as browsing the actual info page; an API query sets this to imageinfo instead
+    COMMONS_URL_QUERY: ClassVar[str] = "utm_source=commons.wikimedia.org&utm_campaign=index&utm_content=original"
     FILENAME_RE: ClassVar[Pattern] = re.compile(r"(File:|Image:)([^/\r\n\t\f\v]+\.\w+)$", re.I)
     COMMONS_WIKI_URL: ClassVar[str] = "https://commons.wikimedia.org/wiki"
     IMAGE_FORMATS: ClassVar[frozenset[str]] = frozenset({".jpg", ".jpeg", ".png", ".pnm", ".gif"})
