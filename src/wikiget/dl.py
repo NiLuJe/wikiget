@@ -208,7 +208,7 @@ class Downloader:
                 tasks = {
                     file: progress.add_task("download", filename=str(file.dest), total=None)
                     for file in downloads.values()
-                    if file and file.dest
+                    if file
                 }
 
                 # Advance progress bar for lines where query_filename failed
