@@ -246,17 +246,15 @@ class Downloader:
 
         logger.info("Processing '%s' @ line %i", line, line_num)
         try:
-            file = self.prep_download(line)
+            return self.prep_download(line)
         except ParseError as e:
             logger.error("%s (@ line %i)", str(e), line_num)
             self.increment_errors()
-            file = None
         except FileExistsError as e:
             logger.warning(e)
             self.increment_warnings()
-            file = None
 
-        return file
+        return None
 
     def process_response(self, r: niquests.Response, file: File, progress: Progress, task: TaskID) -> None:
         """Fetch file information and contents if the file exists and save it to disk."""
