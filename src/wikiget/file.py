@@ -65,8 +65,9 @@ class File:
         # Extract the filename
         filename = self._get_filename()
 
-        # Resolve anything that might be URL-encoded in there
-        self.filename = Path(unquote(filename))
+        # Resolve anything that might be URL-encoded in there,
+        # and sanitize the result to prevent path traversal
+        self.filename = self._sanitize_filename(Path(unquote(filename)))
 
         # Compute dest
         self.dest: Path = self._compute_dest()
@@ -109,6 +110,12 @@ class File:
         else:
             # No file extension and/or prefix, probably an article
             raise ParseError(f"Could not parse input `{filename}` as a valid WikiMedia file")
+
+    def _sanitize_filename(self, filename: Path) -> Path:
+        # Make sure sneaky input can't lead to path traversal by dropping:
+        # - slashes (e.g., a leading slash, which we'll always get if input was an URL)
+        # - Any .., to prevent escaping the target directory
+        return Path(".").joinpath(*(part for part in filename.parts if part not in ("/", "..")))
 
     def _compute_dest(self) -> Path:
         if self.output:
