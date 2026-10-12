@@ -22,7 +22,7 @@ from pathlib import Path
 import re
 from re import Pattern
 from typing import ClassVar
-from urllib.parse import quote, unquote, urlparse
+from urllib.parse import parse_qs, quote, unquote, urlsplit
 
 from attrs import define, field
 
@@ -39,10 +39,10 @@ class File:
 
     COMMONS_BASE_URL: ClassVar[str] = "https://upload.wikimedia.org/wikipedia/commons"
     # NOTE: Use the same utm_campaign as browsing the actual info page; an API query sets this to imageinfo instead
-    COMMONS_URL_PARAMS: ClassVar[dict[str, str]] = {
-        "utm_source": "commons.wikimedia.org",
-        "utm_campaign": "index",
-        "utm_content": "original",
+    COMMONS_URL_PARAMS: ClassVar[dict[str, list[str]]] = {
+        "utm_source": ["commons.wikimedia.org"],
+        "utm_campaign": ["index"],
+        "utm_content": ["original"],
     }
     FILENAME_RE: ClassVar[Pattern] = re.compile(r"(File:|Image:)([^/\s]+\.\w{2,3}(?:\.\w{2,3})?)$", re.I)
     COMMONS_WIKI_URL: ClassVar[str] = "https://commons.wikimedia.org/wiki"
@@ -57,7 +57,7 @@ class File:
     dest: Path = field(init=False, eq=False)
     url: str = field(init=False, eq=True)
     headers: dict[str, str] | None = field(default=None, init=False, eq=False)
-    params: dict[str, str] | None = field(default=None, init=False, eq=False)
+    params: dict[str, list[str]] | None = field(default=None, init=False, eq=False)
 
     def __attrs_post_init__(self) -> None:
         # NOTE: Validators have already run by then
@@ -85,12 +85,13 @@ class File:
 
     def _get_filename(self) -> str:
         # First, check if the input isn't already a proper URL
-        url = urlparse(self.input)
+        url = urlsplit(self.input)
 
         if url.netloc:
             filename = url.path
-            # NOTE: query & fragment get dropped
             self.url = f"{url.scheme}://{url.netloc}{url.path}"
+            if url.query:
+                self.params = parse_qs(url.query)
             # NOTE: Since we no longer use the API,
             #       we also no longer validate that netloc looks like a WM domain.
         else:
