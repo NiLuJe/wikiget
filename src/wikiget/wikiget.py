@@ -83,7 +83,7 @@ def cli(
         if cfg.batch:
             # Create & check the output directory in batch mode
             output.mkdir(parents=True, exist_ok=True)
-            if not output.is_dir():
+            if not output.info.is_dir():
                 logger.critical("Output `%s` is not a directory!", str(output))
             if not os.access(output, os.W_OK):
                 logger.critical("Output directory `%s` is not writable!", str(output))

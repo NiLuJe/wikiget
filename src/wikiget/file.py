@@ -122,7 +122,7 @@ class File:
 
     def _compute_dest(self) -> Path:
         if self.output:
-            if self.output.is_dir():
+            if self.output.info.is_dir():
                 # i.e., batch mode
                 return self.output / self.filename
             else:
