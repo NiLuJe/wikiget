@@ -66,11 +66,6 @@ class File:
         filename = self._get_filename()
         filename = self._validate_filename(filename)
 
-        if filename is None:
-            # We failed validation, bail out early,
-            # caller will detect this and throw
-            return
-
         # Resolve anything that might be URL-encoded in there
         self.filename = Path(unquote(filename))
 
