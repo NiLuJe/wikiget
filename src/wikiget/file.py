@@ -117,7 +117,7 @@ class File:
         # - Any .., to prevent escaping the target directory
         # (~ is only special to a shell, and we never call expanduser to resolve it,
         # so it's just a valid filename character)
-        return Path(".").joinpath(*(part for part in filename.parts if part not in ("/", "..")))
+        return Path(*(part for part in filename.parts if part not in ("/", "..")))
 
     def _compute_dest(self) -> Path:
         if self.output:
