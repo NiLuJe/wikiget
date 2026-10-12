@@ -60,11 +60,10 @@ class File:
     params: dict[str, list[str]] | None = field(default=None, init=False, eq=False)
 
     def __attrs_post_init__(self) -> None:
-        # NOTE: Validators have already run by then
+        # NOTE: Validators (if any) have already run by then
 
-        # Extract & validate the filename
+        # Extract the filename
         filename = self._get_filename()
-        filename = self._validate_filename(filename)
 
         # Resolve anything that might be URL-encoded in there
         self.filename = Path(unquote(filename))
@@ -93,6 +92,8 @@ class File:
             #       we also no longer validate that netloc looks like a WM domain.
         else:
             filename = self.input
+            # Input wasn't an URL, make sure it looks like a Wikimedia file
+            filename = self._validate_filename(filename)
 
         return filename
 
