@@ -119,7 +119,7 @@ class File:
                 # i.e., single-file mode
                 return self.output
         else:
-            return Path(self.filename)
+            return self.filename
 
     def _compute_commons_url(self) -> str:
         # c.f., https://commons.wikimedia.org/wiki/Commons:FAQ#What_are_the_strangely_named_components_in_file_paths?
