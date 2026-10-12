@@ -25,7 +25,10 @@ from typing import Any
 from rich.console import Console
 from rich.logging import RichHandler
 
-from . import VERBOSE, VERY_VERBOSE
+# -v
+VERBOSE = 1
+# -vv
+VERY_VERBOSE = 2
 
 console = Console()
 error_console = Console(stderr=True)
