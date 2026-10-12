@@ -288,6 +288,11 @@ class Downloader:
 
         try:
             progress.update(task, total=remote_size)
+
+            # NOTE: When input is an URL, we preserve the full path;
+            #       make sure the directory structure actually exists!
+            file.dest.parent.mkdir(parents=True, exist_ok=True)
+
             with file.dest.open("wb") as fd:
                 for chunk in r.iter_content():
                     fd.write(chunk)
@@ -311,6 +316,7 @@ class Downloader:
                 else:
                     # NOTE: Its str dunder will do the formatting for us :)
                     delta = timedelta(seconds=max(0, round(elapsed)))
+
                 progress.console.log(f"Downloaded [bold magenta]{file.filename}[/] in [bold yellow]{delta}[/]")
         except OSError as e:
             adapter.error(f"File could not be written: {e}")
