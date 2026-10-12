@@ -22,7 +22,7 @@ from pathlib import Path
 import re
 from re import Pattern
 from typing import ClassVar
-from urllib.parse import parse_qs, quote, unquote, urlsplit
+from urllib.parse import SplitResult, parse_qs, quote, unquote, urlsplit, urlunsplit
 
 from attrs import define, field
 
@@ -89,9 +89,11 @@ class File:
 
         if url.netloc:
             filename = url.path
-            self.url = f"{url.scheme}://{url.netloc}{url.path}"
             if url.query:
                 self.params = parse_qs(url.query)
+            # Only keep the scheme, netloc & path parts, as we've just handled query.
+            # NOTE: fragment gets dropped
+            self.url = urlunsplit(SplitResult(*url[:3], "", ""))
             # NOTE: Since we no longer use the API,
             #       we also no longer validate that netloc looks like a WM domain.
         else:
