@@ -22,6 +22,7 @@ from typing import Annotated
 from cyclopts import Group, Parameter, validators
 from cyclopts.types import PositiveInt
 
+# verbose & quiet are mutually exclusive
 verbosity = Group(
     "Verbosity",
     default_parameter=Parameter(negative="", show_default=False),
