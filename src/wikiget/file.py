@@ -31,7 +31,7 @@ from .exceptions import ParseError
 
 # NOTE: We *are* pretty much immutable,
 #       but specifying frozen here would make our post_init clunky
-#       by requiring going through object.__setattr__ to bypass attrs own guard...
+#       by requiring going through object.__setattr__ to bypass attrs's own guard...
 #       And ultimately, we very much *do* want hashing and equality by url *value*.
 @define(unsafe_hash=True)
 class File:
@@ -70,11 +70,11 @@ class File:
         self.filename = self._sanitize_filename(Path(unquote(filename)))
 
         # Compute dest
-        self.dest: Path = self._compute_dest()
+        self.dest = self._compute_dest()
 
         # Compute url, if input wasn't already one
         if not hasattr(self, "url"):
-            self.url: str = self._compute_commons_url()
+            self.url = self._compute_commons_url()
             self.headers = {"referer": self._compute_referer_url()}
             self.params = self.COMMONS_URL_PARAMS
 
