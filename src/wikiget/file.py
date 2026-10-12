@@ -114,10 +114,11 @@ class File:
     def _sanitize_filename(self, filename: Path) -> Path:
         # Make sure sneaky input can't lead to path traversal by dropping:
         # - slashes (e.g., a leading slash, which we'll always get if input was an URL)
+        # - double slash (because there's no valid reason to use those in this context)
         # - Any .., to prevent escaping the target directory
         # (~ is only special to a shell, and we never call expanduser to resolve it,
         # so it's just a valid filename character)
-        return Path(*(part for part in filename.parts if part not in ("/", "..")))
+        return Path(*(part for part in filename.parts if part not in ("/", "//", "..")))
 
     def _compute_dest(self) -> Path:
         if self.output:
