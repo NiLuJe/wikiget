@@ -39,7 +39,11 @@ class File:
 
     COMMONS_BASE_URL: ClassVar[str] = "https://upload.wikimedia.org/wikipedia/commons"
     # NOTE: Use the same utm_campaign as browsing the actual info page; an API query sets this to imageinfo instead
-    COMMONS_URL_QUERY: ClassVar[str] = "utm_source=commons.wikimedia.org&utm_campaign=index&utm_content=original"
+    COMMONS_URL_PARAMS: ClassVar[dict[str, str]] = {
+        "utm_source": "commons.wikimedia.org",
+        "utm_campaign": "index",
+        "utm_content": "original",
+    }
     FILENAME_RE: ClassVar[Pattern] = re.compile(r"(File:|Image:)([^/\s]+\.\w{2,3}(?:\.\w{2,3})?)$", re.I)
     COMMONS_WIKI_URL: ClassVar[str] = "https://commons.wikimedia.org/wiki"
     IMAGE_FORMATS: ClassVar[frozenset[str]] = frozenset({".jpg", ".jpeg", ".png", ".pnm", ".gif"})
@@ -53,6 +57,7 @@ class File:
     dest: Path = field(init=False, eq=False)
     url: str = field(init=False, eq=True)
     headers: dict[str, str] | None = field(default=None, init=False, eq=False)
+    params: dict[str, str] | None = field(default=None, init=False, eq=False)
 
     def __attrs_post_init__(self) -> None:
         # NOTE: Validators have already run by then
@@ -76,6 +81,7 @@ class File:
         if not hasattr(self, "url"):
             self.url: str = self._compute_commons_url()
             self.headers = {"referer": self._compute_referer_url()}
+            self.params = self.COMMONS_URL_PARAMS
 
     def _get_filename(self) -> str:
         # First, check if the input isn't already a proper URL
@@ -129,7 +135,7 @@ class File:
 
         file_path = f"{hashed_name[0]}/{hashed_name[:2]}/{filename}"
 
-        return f"{self.COMMONS_BASE_URL}/{quote(file_path)}?{self.COMMONS_URL_QUERY}"
+        return f"{self.COMMONS_BASE_URL}/{quote(file_path)}"
 
     def _compute_referer_url(self) -> str:
         # Poor man's format detection

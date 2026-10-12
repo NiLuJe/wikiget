@@ -195,7 +195,9 @@ class Downloader:
 
                 downloads = {line: self.query_filename(line, filename) for line, filename in batch}
                 responses = {
-                    file: s.get(file.url, stream=True, headers=file.headers) for file in downloads.values() if file
+                    file: s.get(file.url, stream=True, headers=file.headers, params=file.params)
+                    for file in downloads.values()
+                    if file
                 }
                 # Start tasks ASAP so we get an accurate elapsed time
                 tasks = {
