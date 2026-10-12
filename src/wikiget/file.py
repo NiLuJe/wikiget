@@ -115,6 +115,8 @@ class File:
         # Make sure sneaky input can't lead to path traversal by dropping:
         # - slashes (e.g., a leading slash, which we'll always get if input was an URL)
         # - Any .., to prevent escaping the target directory
+        # (~ is only special to a shell, and we never call expanduser to resolve it,
+        # so it's just a valid filename character)
         return Path(".").joinpath(*(part for part in filename.parts if part not in ("/", "..")))
 
     def _compute_dest(self) -> Path:
