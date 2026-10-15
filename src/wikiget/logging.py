@@ -71,8 +71,8 @@ def configure_logging(verbosity: int, logfile: Path | None, *, quiet: bool) -> Q
     # NOTE: Adopt the threaded setup described in
     #       https://docs.python.org/3/howto/logging-cookbook.html#blocking-handlers,
     #       as rich handlers are pretty CPU-intensive...
-    console_log_format = "%(threadName)s: %(message)s"
-    file_log_format = "%(asctime)s [%(levelname)-7s] %(threadName)s: %(message)s"
+    console_log_format = "%(name)s (%(threadName)s): %(message)s"
+    file_log_format = "%(asctime)s [%(levelname)-7s] %(name)s (%(threadName)s): %(message)s"
 
     logger = logging.getLogger()  # root logger
     logger.setLevel(logging.DEBUG)
