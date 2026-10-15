@@ -15,7 +15,9 @@
 # You should have received a copy of the GNU General Public License
 # along with Wikiget. If not, see <https://www.gnu.org/licenses/>.
 
+import asyncio
+
 from .wikiget import app
 
 if __name__ == "__main__":
-    app()
+    asyncio.run(app())

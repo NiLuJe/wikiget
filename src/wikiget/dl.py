@@ -20,6 +20,8 @@
 # Lazy load modules only used at runtime (Py 3.15+)
 __lazy_modules__ = ["asyncio", "collections", "datetime", "functools", "itertools", "signal", "niquests", "rich.progress"]
 
+import asyncio
+from asyncio import AbstractEventLoop
 from collections import Counter
 from datetime import timedelta
 from functools import partial
@@ -28,7 +30,6 @@ import logging
 from pathlib import Path
 import signal
 from threading import Event
-from types import FrameType
 from typing import Any, ClassVar
 
 from cyclopts.types import StdioPath
@@ -81,10 +82,10 @@ class Downloader:
             }
         )
 
-        # TODO: Revisit that once async?
         # And install our SIGINT handler
         self.done_event = Event()
-        signal.signal(signal.SIGINT, partial(self.handle_sigint))
+        loop = asyncio.get_running_loop()
+        loop.add_signal_handler(signal.SIGINT, partial(self.handle_sigint, loop))
 
         logger.debug("User agent: %s", self.USER_AGENT)
 
@@ -100,9 +101,10 @@ class Downloader:
     def increment_warnings(self) -> None:
         self.status["warnings"] += 1
 
-    def handle_sigint(self, _signum: int, _frame: FrameType | None) -> Any:
+    def handle_sigint(self, loop: AbstractEventLoop) -> Any:
         self.done_event.set()
         self.console.log("Caught a [bold red]SIGINT[/], tearing down pending tasks...")
+        loop.stop()
 
     def overall_progress_bar(self) -> Progress:
         """Return a rich.progress Progress instance laid out for overall progress"""

@@ -20,7 +20,6 @@
 # Lazy load modules only used at runtime (Py 3.15+)
 __lazy_modules__ = ["asyncio", "os"]
 
-import asyncio
 import logging
 import os
 
@@ -49,7 +48,7 @@ install_rich_traceback(console=error_console)
 
 
 @app.default
-def cli(
+async def cli(
     input: StdioPath,
     /,
     output: Directory | None = None,
@@ -99,5 +98,4 @@ def cli(
         logger.info("Starting download session using wikiget %s", WIKIGET_VERSION)
 
         dl = Downloader(input, output, cfg)
-        rc = asyncio.run(dl.process_download())
-    return rc
+        return await dl.process_download()
