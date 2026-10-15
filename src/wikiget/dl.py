@@ -199,7 +199,7 @@ class Downloader:
             self.overall_progress_bar() as overall_progress,
             self.progress_bar() as progress,
         ):
-            async with niquests.AsyncSession(multiplexed=True, retries=retry, headers=ua) as s:
+            async with niquests.AsyncSession(multiplexed=False, retries=retry, headers=ua) as s:
                 overall_task = overall_progress.add_task("Download...", total=batch_size(self.input))
                 for batch in batched(batch_files(self.input), self.concurrency, strict=False):
                     # Abort early w/o inflating the error count if we caught a SIGINT
@@ -207,8 +207,8 @@ class Downloader:
                         break
 
                     downloads = {line: self.query_filename(line, filename) for line, filename in batch}
-                    responses = {
-                        file: await s.get(file.url, stream=True, headers=file.headers, params=file.params)
+                    requests = {
+                        file: s.get(file.url, stream=True, headers=file.headers, params=file.params)
                         for file in downloads.values()
                         if file
                     }
@@ -220,11 +220,12 @@ class Downloader:
                     }
 
                     # Advance progress bar for lines where query_filename failed
-                    overall_progress.advance(overall_task, advance=len(downloads) - len(responses))
+                    overall_progress.advance(overall_task, advance=len(downloads) - len(requests))
 
-                    await s.gather(*responses.values())
+                    # await s.gather(*responses.values())
+                    responses = await asyncio.gather(*requests.values())
                     async with asyncio.TaskGroup() as tg:
-                        for file, r in responses.items():
+                        for file, r in zip(requests.keys(), responses, strict=True):
                             task = tasks[file]
                             tg.create_task(self.handle_response(r, file, progress, task, overall_progress, overall_task))
 
