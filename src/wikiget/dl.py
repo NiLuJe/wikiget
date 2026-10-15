@@ -208,14 +208,14 @@ class Downloader:
         # NOTE: We *would* use base_url here, but for the fact that we actually support passing full URLs ;).
         # FIXME: Reimplement authentification (c.f., mwclient site_login)
         with (
-            self.overall_progress_bar() as overall_progress,
-            self.progress_bar() as progress,
+            self.overall_progress_bar() as self.overall_progress,
+            self.progress_bar() as self.progress,
         ):
             # NOTE: Setup a rate limiter on our end to try to avoid hitting 429...
             limiter = niquests.AsyncLeakyBucketLimiter(rate=self.rate_limit)
 
             async with niquests.AsyncSession(multiplexed=False, hooks=limiter, retries=retry, headers=ua) as s:
-                overall_task = overall_progress.add_task("Download...", total=batch_size(self.input))
+                self.overall_task = self.overall_progress.add_task("Download...", total=batch_size(self.input))
                 for batch in batched(batch_files(self.input), self.concurrency, strict=False):
                     # Abort early w/o inflating the error count if we caught a SIGINT
                     if self.done_event.is_set():
@@ -229,20 +229,20 @@ class Downloader:
                     }
                     # Start tasks ASAP so we get an accurate elapsed time
                     tasks = {
-                        file: progress.add_task("download", filename=str(file.dest.name), total=None)
+                        file: self.progress.add_task("download", filename=str(file.dest.name), total=None)
                         for file in downloads.values()
                         if file
                     }
 
                     # Advance progress bar for lines where query_filename failed
-                    overall_progress.advance(overall_task, advance=len(downloads) - len(requests))
+                    self.overall_progress.advance(self.overall_task, advance=len(downloads) - len(requests))
 
                     # await s.gather(*responses.values())
                     responses = await asyncio.gather(*requests.values())
                     async with asyncio.TaskGroup() as tg:
                         for file, r in zip(requests.keys(), responses, strict=True):
                             task = tasks[file]
-                            tg.create_task(self.handle_response(r, file, progress, task, overall_progress, overall_task))
+                            tg.create_task(self.handle_response(r, file, task))
 
         errors, warnings = self.errors(), self.warnings()
         if errors or warnings:
@@ -282,25 +282,17 @@ class Downloader:
 
         return None
 
-    async def handle_response(
-        self,
-        r: niquests.AsyncResponse,
-        file: File,
-        progress: Progress,
-        task: TaskID,
-        overall_progress: Progress,
-        overall_task: TaskID,
-    ) -> None:
+    async def handle_response(self, r: niquests.AsyncResponse, file: File, task: TaskID) -> None:
         try:
-            await self.process_response(r, file, progress, task)
+            await self.process_response(r, file, task)
         finally:
             await r.close()
             # NOTE: A single Progress instance will only ever show as many tasks as the terminal height allows...
             #       Drop completed tasks to free up space.
-            progress.remove_task(task)
-            overall_progress.advance(overall_task)
+            self.progress.remove_task(task)
+            self.overall_progress.advance(self.overall_task)
 
-    async def process_response(self, r: niquests.AsyncResponse, file: File, progress: Progress, task: TaskID) -> None:
+    async def process_response(self, r: niquests.AsyncResponse, file: File, task: TaskID) -> None:
         """Fetch file information and contents if the file exists and save it to disk."""
 
         # prepend the current filename to all log messages
@@ -316,7 +308,7 @@ class Downloader:
         except niquests.HTTPError as e:
             adapter.error(f"File could not be downloaded: {e}")
             self.increment_errors()
-            progress.console.log(
+            self.progress.console.log(
                 f"[bold red]FAILED[/] to download [bold magenta]{file.filename}[/] ([bold yellow]{r.status_code}[/])"
             )
             return
@@ -334,7 +326,7 @@ class Downloader:
             return
 
         try:
-            progress.update(task, total=remote_size)
+            self.progress.update(task, total=remote_size)
 
             # NOTE: When input is an URL, we preserve the full path;
             #       make sure the directory structure actually exists!
@@ -344,12 +336,12 @@ class Downloader:
                 async for chunk in await r.iter_content():
                     fd.write(chunk)
                     if r.download_progress:
-                        progress.update(task, completed=r.download_progress.total)
+                        self.progress.update(task, completed=r.download_progress.total)
                     else:
-                        progress.update(task, advance=len(chunk))
+                        self.progress.update(task, advance=len(chunk))
 
                 # Pull the elapsed time for our task out of rich's guts...
-                t = progress._tasks[task]
+                t = self.progress._tasks[task]
                 elapsed = t.finished_time if t.finished else t.elapsed
                 if elapsed is None:
                     delta = "?"
@@ -357,12 +349,12 @@ class Downloader:
                     # NOTE: Its str dunder will do the formatting for us :)
                     delta = timedelta(seconds=max(0, round(elapsed)))
 
-                progress.console.log(f"Downloaded [bold magenta]{file.filename}[/] in [bold yellow]{delta}[/]")
+                self.progress.console.log(f"Downloaded [bold magenta]{file.filename}[/] in [bold yellow]{delta}[/]")
         except OSError as e:
             adapter.error(f"File could not be written: {e}")
             file.dest.unlink(missing_ok=True)
             self.increment_errors()
-            progress.console.log(f"[bold red]FAILED[/] to write local file for [bold magenta]{file.filename}[/]")
+            self.progress.console.log(f"[bold red]FAILED[/] to write local file for [bold magenta]{file.filename}[/]")
             return
 
         # Verify file integrity and log the details
@@ -372,7 +364,7 @@ class Downloader:
             adapter.error(f"File downloaded but could not be verified: {e}")
             file.dest.unlink()
             self.increment_errors()
-            progress.console.log(f"[bold red]FAILED[/] to verify downloaded [bold magenta]{file.filename}[/]")
+            self.progress.console.log(f"[bold red]FAILED[/] to verify downloaded [bold magenta]{file.filename}[/]")
             return
 
         if hash_ok:
@@ -385,7 +377,7 @@ class Downloader:
             adapter.error("Hash mismatch! Downloaded file may be corrupt.")
             file.dest.unlink()
             self.increment_errors()
-            progress.console.log(f"[bold red]CORRUPT[/] download for [bold magenta]{file.filename}[/]")
+            self.progress.console.log(f"[bold red]CORRUPT[/] download for [bold magenta]{file.filename}[/]")
 
         self.increment_successes()
         return
