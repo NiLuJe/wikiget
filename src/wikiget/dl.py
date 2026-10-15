@@ -78,6 +78,7 @@ class Downloader:
             {
                 "errors": 0,
                 "warnings": 0,
+                "successes": 0,
             }
         )
 
@@ -87,6 +88,8 @@ class Downloader:
         loop.add_signal_handler(signal.SIGINT, partial(self.handle_sigint, loop))
 
         logger.debug("User agent: %s", self.USER_AGENT)
+
+        self.start_time = loop.time()
 
     def errors(self) -> int:
         return self.status["errors"]
@@ -99,6 +102,12 @@ class Downloader:
 
     def increment_warnings(self) -> None:
         self.status["warnings"] += 1
+
+    def successes(self) -> int:
+        return self.status["successes"]
+
+    def increment_successes(self) -> None:
+        self.status["successes"] += 1
 
     def handle_sigint(self, loop: AbstractEventLoop) -> Any:
         self.done_event.set()
@@ -199,9 +208,7 @@ class Downloader:
             self.overall_progress_bar() as overall_progress,
             self.progress_bar() as progress,
         ):
-            # Setup a rate limiter on our end to try to avoid hitting 429...
-            limiter = niquests.AsyncLeakyBucketLimiter(rate=1.0)
-            async with niquests.AsyncSession(multiplexed=False, hooks=limiter, retries=retry, headers=ua) as s:
+            async with niquests.AsyncSession(multiplexed=False, retries=retry, headers=ua) as s:
                 overall_task = overall_progress.add_task("Download...", total=batch_size(self.input))
                 for batch in batched(batch_files(self.input), self.concurrency, strict=False):
                     # Abort early w/o inflating the error count if we caught a SIGINT
@@ -240,6 +247,12 @@ class Downloader:
                 warnings,
                 "s"[: warnings ^ 1],
             )
+        successes = self.successes()
+        if successes:
+            end_time = asyncio.get_running_loop().time()
+            delta = timedelta(seconds=round(end_time - self.start_time))
+
+            logger.info("Downloaded %d items in %s (%.2f rps)", successes, delta, delta.total_seconds() / successes)
 
         # Return a non-zero exit code if any meaningful problems were encountered,
         # even if some downloads completed successfully
@@ -368,4 +381,5 @@ class Downloader:
             self.increment_errors()
             progress.console.log(f"[bold red]CORRUPT[/] download for [bold magenta]{file.filename}[/]")
 
+        self.increment_successes()
         return

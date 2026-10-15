@@ -43,8 +43,8 @@ app = App(
 # NOTE: This adds a seemingly-required COMMAND placeholder in the USAGE string :/
 # app.register_install_completion_command()
 
-# Install rich traceback handler using the error console
-install_rich_traceback(console=error_console)
+# Install verbose rich traceback handler using the error console
+install_rich_traceback(console=error_console, show_locals=True)
 
 
 @app.default
