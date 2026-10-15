@@ -156,7 +156,7 @@ class File:
         else:
             prefix = "File"
 
-        return f"{self.COMMONS_WIKI_URL}/{prefix}:{self.filename.name.replace(' ', '_')}"
+        return f"{self.COMMONS_WIKI_URL}/{quote(f'{prefix}:{self.filename.name.replace(" ", "_")}')}"
 
     def matches_checksum(self, md5_hash: str) -> bool:
         with self.dest.open("rb") as f:
