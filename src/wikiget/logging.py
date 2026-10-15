@@ -68,7 +68,7 @@ def configure_logging(verbosity: int, logfile: Path | None, *, quiet: bool) -> Q
     # configure logging:
     # console log level is set via -v, -vv, and -q options;
     # file log level is always debug (TODO: make this user configurable)
-    # NOTE: We opt for the threaded setup described in
+    # NOTE: Adopt the threaded setup described in
     #       https://docs.python.org/3/howto/logging-cookbook.html#blocking-handlers,
     #       as rich handlers are pretty CPU-intensive...
     console_log_format = "%(threadName)s: %(message)s"
@@ -79,20 +79,19 @@ def configure_logging(verbosity: int, logfile: Path | None, *, quiet: bool) -> Q
 
     # Unbounded queue for threaded logging
     que = queue.Queue(-1)
-    # set up console logging
-    c_qh = QueueHandler(que)
+    qh = QueueHandler(que)
+    logger.addHandler(qh)
+
+    # Set up console logging
     ch = RichHandler(console=console)
     ch.setLevel(loglevel)
     ch.setFormatter(logging.Formatter(console_log_format))
-    logger.addHandler(c_qh)
 
     if logfile:
-        # also log to file
-        f_qh = QueueHandler(que)
+        # Also log to file
         fh = logging.FileHandler(logfile)
         fh.setLevel(logging.DEBUG)
         fh.setFormatter(logging.Formatter(file_log_format))
-        logger.addHandler(f_qh)
         return QueueListener(que, ch, fh, respect_handler_level=True)
     else:
         return QueueListener(que, ch, respect_handler_level=True)
