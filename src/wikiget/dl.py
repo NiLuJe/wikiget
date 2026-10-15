@@ -170,7 +170,34 @@ class Downloader:
 
         return file
 
-    async def process_download(self) -> int:
+    async def download(self) -> int:
+        with (
+            self.overall_progress_bar() as self.overall_progress,
+            self.progress_bar() as self.progress,
+        ):
+            await self.process_download()
+
+        errors, warnings = self.errors(), self.warnings()
+        if errors or warnings:
+            logger.warning(
+                "%d error%s and %d warning%s encountered during processing",
+                errors,
+                "s"[: errors ^ 1],
+                warnings,
+                "s"[: warnings ^ 1],
+            )
+        successes = self.successes()
+        if successes:
+            end_time = asyncio.get_running_loop().time()
+            delta = timedelta(seconds=round(end_time - self.start_time))
+
+            logger.info("Downloaded %d items in %s (%.2f rps)", successes, delta, successes / delta.total_seconds())
+
+        # Return a non-zero exit code if any meaningful problems were encountered,
+        # even if some downloads completed successfully
+        return 1 if errors else 0
+
+    async def process_download(self) -> None:
         """Process the download target given in the CLI args as a single file or batch file.
 
         If the target is a batch file, process with batch_download and return the number of
@@ -203,66 +230,42 @@ class Downloader:
         # Setup our UA
         ua = {"user-agent": self.USER_AGENT}
 
+        # NOTE: Setup a rate limiter on our end to try to avoid hitting 429...
+        limiter = niquests.AsyncLeakyBucketLimiter(rate=self.rate_limit)
+
         # NOTE: There's currently only a single A record for upload.wikimedia.org,
         #       so, no need for happy eyeballs.
         # NOTE: We *would* use base_url here, but for the fact that we actually support passing full URLs ;).
         # FIXME: Reimplement authentification (c.f., mwclient site_login)
-        with (
-            self.overall_progress_bar() as self.overall_progress,
-            self.progress_bar() as self.progress,
-        ):
-            # NOTE: Setup a rate limiter on our end to try to avoid hitting 429...
-            limiter = niquests.AsyncLeakyBucketLimiter(rate=self.rate_limit)
+        async with niquests.AsyncSession(multiplexed=False, hooks=limiter, retries=retry, headers=ua) as s:
+            self.overall_task = self.overall_progress.add_task("Download...", total=batch_size(self.input))
+            for batch in batched(batch_files(self.input), self.concurrency, strict=False):
+                # Abort early w/o inflating the error count if we caught a SIGINT
+                if self.done_event.is_set():
+                    break
 
-            async with niquests.AsyncSession(multiplexed=False, hooks=limiter, retries=retry, headers=ua) as s:
-                self.overall_task = self.overall_progress.add_task("Download...", total=batch_size(self.input))
-                for batch in batched(batch_files(self.input), self.concurrency, strict=False):
-                    # Abort early w/o inflating the error count if we caught a SIGINT
-                    if self.done_event.is_set():
-                        break
+                downloads = {line: self.query_filename(line, filename) for line, filename in batch}
+                requests = {
+                    file: s.get(file.url, stream=True, headers=file.headers, params=file.params)
+                    for file in downloads.values()
+                    if file
+                }
+                # Start tasks ASAP so we get an accurate elapsed time
+                tasks = {
+                    file: self.progress.add_task("download", filename=str(file.dest.name), total=None)
+                    for file in downloads.values()
+                    if file
+                }
 
-                    downloads = {line: self.query_filename(line, filename) for line, filename in batch}
-                    requests = {
-                        file: s.get(file.url, stream=True, headers=file.headers, params=file.params)
-                        for file in downloads.values()
-                        if file
-                    }
-                    # Start tasks ASAP so we get an accurate elapsed time
-                    tasks = {
-                        file: self.progress.add_task("download", filename=str(file.dest.name), total=None)
-                        for file in downloads.values()
-                        if file
-                    }
+                # Advance progress bar for lines where query_filename failed
+                self.overall_progress.advance(self.overall_task, advance=len(downloads) - len(requests))
 
-                    # Advance progress bar for lines where query_filename failed
-                    self.overall_progress.advance(self.overall_task, advance=len(downloads) - len(requests))
-
-                    # await s.gather(*responses.values())
-                    responses = await asyncio.gather(*requests.values())
-                    async with asyncio.TaskGroup() as tg:
-                        for file, r in zip(requests.keys(), responses, strict=True):
-                            task = tasks[file]
-                            tg.create_task(self.handle_response(r, file, task))
-
-        errors, warnings = self.errors(), self.warnings()
-        if errors or warnings:
-            logger.warning(
-                "%d error%s and %d warning%s encountered during processing",
-                errors,
-                "s"[: errors ^ 1],
-                warnings,
-                "s"[: warnings ^ 1],
-            )
-        successes = self.successes()
-        if successes:
-            end_time = asyncio.get_running_loop().time()
-            delta = timedelta(seconds=round(end_time - self.start_time))
-
-            logger.info("Downloaded %d items in %s (%.2f rps)", successes, delta, successes / delta.total_seconds())
-
-        # Return a non-zero exit code if any meaningful problems were encountered,
-        # even if some downloads completed successfully
-        return 1 if errors else 0
+                # await s.gather(*responses.values())  # For mutliplexed=true
+                responses = await asyncio.gather(*requests.values())
+                async with asyncio.TaskGroup() as tg:
+                    for file, r in zip(requests.keys(), responses, strict=True):
+                        task = tasks[file]
+                        tg.create_task(self.handle_response(r, file, task))
 
     def query_filename(self, line_num: int, line: str) -> File | None:
         """Prepare a download and compute the canonical Commons download URL

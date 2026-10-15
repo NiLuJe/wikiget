@@ -98,4 +98,4 @@ async def cli(
         logger.info("Starting download session using wikiget %s", WIKIGET_VERSION)
 
         dl = Downloader(input, output, cfg)
-        return await dl.process_download()
+        return await dl.download()
