@@ -23,6 +23,7 @@ __lazy_modules__ = ["asyncio", "collections", "datetime", "functools", "itertool
 import asyncio
 from asyncio import AbstractEventLoop
 from collections import Counter
+from contextlib import suppress
 from datetime import timedelta
 from functools import partial
 from itertools import batched
@@ -104,6 +105,17 @@ class Downloader:
     def handle_sigint(self, loop: AbstractEventLoop) -> Any:
         self.done_event.set()
         self.console.log("Caught a [bold red]SIGINT[/], tearing down pending tasks...")
+
+        # Cancel all pending tasks
+        pending = asyncio.all_tasks()
+        for task in pending:
+            task.cancel()
+            # Await the tast to execute its cancellation,
+            # suppressing the cancelled and incomplete exceptions.
+            with suppress(asyncio.CancelledError, asyncio.InvalidStateError):
+                task.result()
+
+        # And finally stop the loop
         loop.stop()
 
     def overall_progress_bar(self) -> Progress:
