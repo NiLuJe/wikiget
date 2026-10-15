@@ -48,7 +48,7 @@ class File:
         "utm_campaign": ["index"],
         "utm_content": ["original"],
     }
-    FILENAME_RE: ClassVar[Pattern] = re.compile(r"(File:|Image:)([^/\s]+\.\w{2,3}(?:\.\w{2,3})?)$", re.I)
+    FILENAME_RE: ClassVar[Pattern] = re.compile(r"^(File:|Image:)([^/\t\n\r\f\v]+\.\w{2,3}(?:\.\w{2,3})?)$", re.I)
     COMMONS_WIKI_URL: ClassVar[str] = "https://commons.wikimedia.org/wiki"
     IMAGE_FORMATS: ClassVar[frozenset[str]] = frozenset({".jpg", ".jpeg", ".png", ".pnm", ".gif"})
 
