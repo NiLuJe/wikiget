@@ -55,8 +55,7 @@ class File:
     input: str = field(eq=False)
     output: Path | None = field(default=None, eq=False)
     # NOTE: attrs creates slotted classes by default,
-    #       so we need to declare them for them to get a slot,
-    #       as we only ever populate them @ post_init.
+    #       so we need to declare fields only populated @ post_init for them to get a slot.
     filename: Path = field(init=False, eq=False)
     dest: Path = field(init=False, eq=False)
     url: str = field(init=False, eq=True)
