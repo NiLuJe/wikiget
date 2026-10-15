@@ -199,7 +199,9 @@ class Downloader:
             self.overall_progress_bar() as overall_progress,
             self.progress_bar() as progress,
         ):
-            async with niquests.AsyncSession(multiplexed=False, retries=retry, headers=ua) as s:
+            # Setup a rate limiter on our end to try to avoid hitting 429...
+            limiter = niquests.AsyncLeakyBucketLimiter(rate=1.0)
+            async with niquests.AsyncSession(multiplexed=False, hooks=limiter, retries=retry, headers=ua) as s:
                 overall_task = overall_progress.add_task("Download...", total=batch_size(self.input))
                 for batch in batched(batch_files(self.input), self.concurrency, strict=False):
                     # Abort early w/o inflating the error count if we caught a SIGINT
