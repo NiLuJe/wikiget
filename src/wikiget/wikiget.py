@@ -72,31 +72,31 @@ def cli(
     if cfg is None:
         cfg = Config()
 
-    configure_logging(verbosity=cfg.verbose, logfile=cfg.logfile, quiet=cfg.quiet)
+    with configure_logging(verbosity=cfg.verbose, logfile=cfg.logfile, quiet=cfg.quiet):
+        logger = logging.getLogger(__name__)
 
-    logger = logging.getLogger(__name__)
+        # Sanity check args.FILE
+        if not input.is_stdio and not (input.is_file() and os.access(input, os.R_OK)):
+            logger.critical("Cannot access input file `%s`!", str(input))
+            return 1
 
-    # Sanity check args.FILE
-    if not input.is_stdio and not (input.is_file() and os.access(input, os.R_OK)):
-        logger.critical("Cannot access input file `%s`!", str(input))
-        return 1
+        if output:
+            if cfg.batch:
+                # Create & check the output directory in batch mode
+                output.mkdir(parents=True, exist_ok=True)
+                if not output.info.is_dir():
+                    logger.critical("Output `%s` is not a directory!", str(output))
+                if not os.access(output, os.W_OK):
+                    logger.critical("Output directory `%s` is not writable!", str(output))
+            else:
+                # In single-file mode, make sure the parent folder exists
+                output.parent.mkdir(parents=True, exist_ok=True)
 
-    if output:
-        if cfg.batch:
-            # Create & check the output directory in batch mode
-            output.mkdir(parents=True, exist_ok=True)
-            if not output.info.is_dir():
-                logger.critical("Output `%s` is not a directory!", str(output))
-            if not os.access(output, os.W_OK):
-                logger.critical("Output directory `%s` is not writable!", str(output))
-        else:
-            # In single-file mode, make sure the parent folder exists
-            output.parent.mkdir(parents=True, exist_ok=True)
+        # Log events are appended to the file if it already exists,
+        # so, note the start of a new download session.
+        logger.info("***")
+        logger.info("Starting download session using wikiget %s", WIKIGET_VERSION)
 
-    # Log events are appended to the file if it already exists,
-    # so, note the start of a new download session.
-    logger.info("***")
-    logger.info("Starting download session using wikiget %s", WIKIGET_VERSION)
-
-    dl = Downloader(input, output, cfg)
-    return dl.process_download()
+        dl = Downloader(input, output, cfg)
+        rc = dl.process_download()
+    return rc
