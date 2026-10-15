@@ -17,6 +17,7 @@
 
 """Define a File class for representing individual files to be downloaded."""
 
+from collections.abc import Mapping
 import hashlib
 from pathlib import Path
 import re
@@ -39,7 +40,7 @@ class File:
 
     COMMONS_BASE_URL: ClassVar[str] = "https://upload.wikimedia.org/wikipedia/commons"
     # NOTE: Use the same utm_campaign as browsing the actual info page; an API query sets this to imageinfo instead
-    COMMONS_URL_PARAMS: ClassVar[dict[str, list[str]]] = {
+    COMMONS_URL_PARAMS: ClassVar[Mapping[str, list[str]]] = {
         "utm_source": ["commons.wikimedia.org"],
         "utm_campaign": ["index"],
         "utm_content": ["original"],
@@ -56,8 +57,8 @@ class File:
     filename: Path = field(init=False, eq=False)
     dest: Path = field(init=False, eq=False)
     url: str = field(init=False, eq=True)
-    headers: dict[str, str] | None = field(default=None, init=False, eq=False)
-    params: dict[str, list[str]] | None = field(default=None, init=False, eq=False)
+    headers: Mapping[str, str] | None = field(default=None, init=False, eq=False)
+    params: Mapping[str, list[str]] | None = field(default=None, init=False, eq=False)
 
     def __attrs_post_init__(self) -> None:
         # NOTE: Validators (if any) have already run by then
