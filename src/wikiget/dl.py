@@ -21,16 +21,14 @@
 __lazy_modules__ = ["asyncio", "collections", "datetime", "functools", "itertools", "signal", "niquests", "rich.progress"]
 
 import asyncio
-from asyncio import AbstractEventLoop
+from asyncio import AbstractEventLoop, Event
 from collections import Counter
-from contextlib import suppress
 from datetime import timedelta
 from functools import partial
 from itertools import batched
 import logging
 from pathlib import Path
 import signal
-from threading import Event
 from typing import Any, ClassVar
 
 from cyclopts.types import StdioPath
@@ -106,17 +104,8 @@ class Downloader:
         self.done_event.set()
         self.console.log("Caught a [bold red]SIGINT[/], tearing down pending tasks...")
 
-        # Cancel all pending tasks
-        pending = asyncio.all_tasks()
-        for task in pending:
-            task.cancel()
-            # Await the tast to execute its cancellation,
-            # suppressing the cancelled and incomplete exceptions.
-            with suppress(asyncio.CancelledError, asyncio.InvalidStateError):
-                task.result()
-
-        # And finally stop the loop
-        loop.stop()
+        # Forces an immediate teardown, at the risk of leaving incomplete data around...
+        # raise KeyboardInterrupt
 
     def overall_progress_bar(self) -> Progress:
         """Return a rich.progress Progress instance laid out for overall progress"""
@@ -324,13 +313,6 @@ class Downloader:
                         progress.update(task, completed=r.download_progress.total)
                     else:
                         progress.update(task, advance=len(chunk))
-
-                    # Clean up on SIGINT, so we don't leave incomplete files around
-                    if self.done_event.is_set():
-                        adapter.error("Caught a SIGINT, aborting")
-                        file.dest.unlink()
-                        progress.console.log(f"[bold red]Aborted[/] [bold magenta]{file.filename}[/] download")
-                        return
 
                 # Pull the elapsed time for our task out of rich's guts...
                 t = progress._tasks[task]
