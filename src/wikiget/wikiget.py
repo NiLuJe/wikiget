@@ -18,8 +18,9 @@
 """Set up the command-line interface and handle program start and exit."""
 
 # Lazy load modules only used at runtime (Py 3.15+)
-__lazy_modules__ = ["os"]
+__lazy_modules__ = ["asyncio", "os"]
 
+import asyncio
 import logging
 import os
 
@@ -98,5 +99,5 @@ def cli(
         logger.info("Starting download session using wikiget %s", WIKIGET_VERSION)
 
         dl = Downloader(input, output, cfg)
-        rc = dl.process_download()
+        rc = asyncio.run(dl.process_download())
     return rc

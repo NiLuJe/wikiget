@@ -18,7 +18,7 @@
 """Prepare and process file downloads."""
 
 # Lazy load modules only used at runtime (Py 3.15+)
-__lazy_modules__ = ["collections", "datetime", "functools", "itertools", "signal", "niquests", "rich.progress"]
+__lazy_modules__ = ["asyncio", "collections", "datetime", "functools", "itertools", "signal", "niquests", "rich.progress"]
 
 from collections import Counter
 from datetime import timedelta
@@ -156,7 +156,7 @@ class Downloader:
 
         return file
 
-    def process_download(self) -> int:
+    async def process_download(self) -> int:
         """Process the download target given in the CLI args as a single file or batch file.
 
         If the target is a batch file, process with batch_download and return the number of
@@ -193,43 +193,43 @@ class Downloader:
         # NOTE: We *would* use base_url here, but for the fact that we actually support passing full URLs ;).
         # FIXME: Reimplement authentification (c.f., mwclient site_login)
         with (
-            niquests.Session(multiplexed=True, retries=retry, headers=ua) as s,
             self.overall_progress_bar() as overall_progress,
             self.progress_bar() as progress,
         ):
-            overall_task = overall_progress.add_task("Download...", total=batch_size(self.input))
-            for batch in batched(batch_files(self.input), self.concurrency, strict=False):
-                # Abort early w/o inflating the error count if we caught a SIGINT
-                if self.done_event.is_set():
-                    break
+            async with niquests.AsyncSession(multiplexed=True, retries=retry, headers=ua) as s:
+                overall_task = overall_progress.add_task("Download...", total=batch_size(self.input))
+                for batch in batched(batch_files(self.input), self.concurrency, strict=False):
+                    # Abort early w/o inflating the error count if we caught a SIGINT
+                    if self.done_event.is_set():
+                        break
 
-                downloads = {line: self.query_filename(line, filename) for line, filename in batch}
-                responses = {
-                    file: s.get(file.url, stream=True, headers=file.headers, params=file.params)
-                    for file in downloads.values()
-                    if file
-                }
-                # Start tasks ASAP so we get an accurate elapsed time
-                tasks = {
-                    file: progress.add_task("download", filename=str(file.dest.name), total=None)
-                    for file in downloads.values()
-                    if file
-                }
+                    downloads = {line: self.query_filename(line, filename) for line, filename in batch}
+                    responses = {
+                        file: await s.get(file.url, stream=True, headers=file.headers, params=file.params)
+                        for file in downloads.values()
+                        if file
+                    }
+                    # Start tasks ASAP so we get an accurate elapsed time
+                    tasks = {
+                        file: progress.add_task("download", filename=str(file.dest.name), total=None)
+                        for file in downloads.values()
+                        if file
+                    }
 
-                # Advance progress bar for lines where query_filename failed
-                overall_progress.advance(overall_task, advance=len(downloads) - len(responses))
+                    # Advance progress bar for lines where query_filename failed
+                    overall_progress.advance(overall_task, advance=len(downloads) - len(responses))
 
-                s.gather(*responses.values())
-                for file, r in responses.items():
-                    task = tasks[file]
-                    try:
-                        self.process_response(r, file, progress, task)
-                    finally:
-                        r.close()
-                        # NOTE: A single Progress instance will only ever show as many tasks as the terminal height allows...
-                        #       Drop completed tasks to free up space.
-                        progress.remove_task(task)
-                        overall_progress.advance(overall_task)
+                    await s.gather(*responses.values())
+                    for file, r in responses.items():
+                        task = tasks[file]
+                        try:
+                            await self.process_response(r, file, progress, task)
+                        finally:
+                            await r.close()
+                            # NOTE: A single Progress instance will only ever show as many tasks as the terminal height allows...
+                            #       Drop completed tasks to free up space.
+                            progress.remove_task(task)
+                            overall_progress.advance(overall_task)
 
         errors, warnings = self.errors(), self.warnings()
         if errors or warnings:
@@ -263,7 +263,7 @@ class Downloader:
 
         return None
 
-    def process_response(self, r: niquests.Response, file: File, progress: Progress, task: TaskID) -> None:
+    async def process_response(self, r: niquests.AsyncResponse, file: File, progress: Progress, task: TaskID) -> None:
         """Fetch file information and contents if the file exists and save it to disk."""
 
         # prepend the current filename to all log messages
@@ -304,7 +304,7 @@ class Downloader:
             file.dest.parent.mkdir(parents=True, exist_ok=True)
 
             with file.dest.open("wb") as fd:
-                for chunk in r.iter_content():
+                async for chunk in await r.iter_content():
                     fd.write(chunk)
                     if r.download_progress:
                         progress.update(task, completed=r.download_progress.total)
