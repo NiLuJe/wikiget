@@ -193,6 +193,7 @@ class Downloader:
             total=10,
             # NOTE: CommonsDownloadTool also attempts to retry on 403, which is... weird?
             status_forcelist=[429, 500, 502, 503, 504],
+            # NOTE: Roughly matches the Retry-After value, which currently seems to start at 10s
             backoff_factor=5,
             backoff_max=30,
             backoff_jitter=0.5,
