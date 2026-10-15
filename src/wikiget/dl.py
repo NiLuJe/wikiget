@@ -223,16 +223,10 @@ class Downloader:
                     overall_progress.advance(overall_task, advance=len(downloads) - len(responses))
 
                     await s.gather(*responses.values())
-                    for file, r in responses.items():
-                        task = tasks[file]
-                        try:
-                            await self.process_response(r, file, progress, task)
-                        finally:
-                            await r.close()
-                            # NOTE: A single Progress instance will only ever show as many tasks as the terminal height allows...
-                            #       Drop completed tasks to free up space.
-                            progress.remove_task(task)
-                            overall_progress.advance(overall_task)
+                    async with asyncio.TaskGroup() as tg:
+                        for file, r in responses.items():
+                            task = tasks[file]
+                            tg.create_task(self.handle_response(r, file, progress, task, overall_progress, overall_task))
 
         errors, warnings = self.errors(), self.warnings()
         if errors or warnings:
@@ -265,6 +259,24 @@ class Downloader:
             self.increment_warnings()
 
         return None
+
+    async def handle_response(
+        self,
+        r: niquests.AsyncResponse,
+        file: File,
+        progress: Progress,
+        task: TaskID,
+        overall_progress: Progress,
+        overall_task: TaskID,
+    ) -> None:
+        try:
+            await self.process_response(r, file, progress, task)
+        finally:
+            await r.close()
+            # NOTE: A single Progress instance will only ever show as many tasks as the terminal height allows...
+            #       Drop completed tasks to free up space.
+            progress.remove_task(task)
+            overall_progress.advance(overall_task)
 
     async def process_response(self, r: niquests.AsyncResponse, file: File, progress: Progress, task: TaskID) -> None:
         """Fetch file information and contents if the file exists and save it to disk."""
