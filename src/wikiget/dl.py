@@ -33,7 +33,7 @@ from typing import Any, ClassVar
 
 from cyclopts.types import StdioPath
 import niquests
-from niquests import __version__ as niquests_version
+from niquests import __version__ as NIQUESTS_VERSION
 from rich.progress import (
     BarColumn,
     DownloadColumn,
@@ -52,14 +52,14 @@ from .exceptions import ParseError
 from .file import File
 from .logging import FileLogAdapter, console
 from .parse import batch_files, batch_size
-from .version import __version__ as wikiget_version
+from .version import __version__ as WIKIGET_VERSION
 
 logger = logging.getLogger(__name__)
 
 
 class Downloader:
     USER_AGENT: ClassVar[str] = (
-        f"wikiget/{wikiget_version} (https://github.com/NiLuJe/wikiget) niquests/{niquests_version}"
+        f"wikiget/{WIKIGET_VERSION} (https://github.com/NiLuJe/wikiget) niquests/{NIQUESTS_VERSION}"
     )
 
     def __init__(self, input: StdioPath, output: Path | None, cfg: Config) -> None:
