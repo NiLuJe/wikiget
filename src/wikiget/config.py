@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Annotated
 
 from cyclopts import Group, Parameter, validators
-from cyclopts.types import PositiveInt
+from cyclopts.types import PositiveInt, PositiveFloat
 
 # verbose & quiet are mutually exclusive
 verbosity = Group(
@@ -55,3 +55,5 @@ class Config:
     "Process the input but stop short of actually downloading anything."
     concurrency: Annotated[PositiveInt, Parameter(alias="-j")] = 3
     "Amount of downloads to start in parallel. Check Wikimedia's current policies at https://www.mediawiki.org/wiki/Wikimedia_APIs/Rate_limits before raising this."
+    rps: PositiveFloat = 0.9
+    "Download rate limit, in requests per second."

@@ -70,6 +70,7 @@ class Downloader:
         self.output = output
         self.force_redownload = self.cfg.force
         self.concurrency = self.cfg.concurrency
+        self.rate_limit = self.cfg.rps
         self.dry_run = self.cfg.dry_run
 
         self.console = console
@@ -88,6 +89,7 @@ class Downloader:
         loop.add_signal_handler(signal.SIGINT, partial(self.handle_sigint, loop))
 
         logger.debug("User agent: %s", self.USER_AGENT)
+        logger.debug("Rate limit: %.1f rps", self.rate_limit)
 
         self.start_time = loop.time()
 
@@ -208,7 +210,10 @@ class Downloader:
             self.overall_progress_bar() as overall_progress,
             self.progress_bar() as progress,
         ):
-            async with niquests.AsyncSession(multiplexed=False, retries=retry, headers=ua) as s:
+            # NOTE: Setup a rate limiter on our end to try to avoid hitting 429...
+            limiter = niquests.AsyncLeakyBucketLimiter(rate=self.rate_limit)
+
+            async with niquests.AsyncSession(multiplexed=False, hooks=limiter, retries=retry, headers=ua) as s:
                 overall_task = overall_progress.add_task("Download...", total=batch_size(self.input))
                 for batch in batched(batch_files(self.input), self.concurrency, strict=False):
                     # Abort early w/o inflating the error count if we caught a SIGINT
@@ -252,7 +257,7 @@ class Downloader:
             end_time = asyncio.get_running_loop().time()
             delta = timedelta(seconds=round(end_time - self.start_time))
 
-            logger.info("Downloaded %d items in %s (%.2f rps)", successes, delta, delta.total_seconds() / successes)
+            logger.info("Downloaded %d items in %s (%.2f rps)", successes, delta, successes / delta.total_seconds())
 
         # Return a non-zero exit code if any meaningful problems were encountered,
         # even if some downloads completed successfully
