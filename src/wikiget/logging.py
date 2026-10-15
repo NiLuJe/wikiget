@@ -74,7 +74,7 @@ def configure_logging(verbosity: int, logfile: Path | None, *, quiet: bool) -> Q
     console_log_format = "%(threadName)s: %(message)s"
     file_log_format = "%(asctime)s [%(levelname)-7s] %(threadName)s: %(message)s"
 
-    logger = logging.getLogger("")  # root logger
+    logger = logging.getLogger()  # root logger
     logger.setLevel(logging.DEBUG)
 
     # Unbounded queue for threaded logging
