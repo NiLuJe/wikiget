@@ -17,6 +17,9 @@
 
 """Configure program log configuration and adapters."""
 
+# Lazy load modules only used at runtime (Py 3.15+)
+__lazy_modules__ = ["rich.console", "rich.logging"]
+
 from collections.abc import MutableMapping
 import logging
 from pathlib import Path

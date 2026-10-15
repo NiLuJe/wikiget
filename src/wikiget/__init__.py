@@ -38,10 +38,3 @@ Examples::
     wikiget -a -j3 batch.txt
 
 """
-
-from niquests import __version__ as niquests_version
-
-from wikiget.version import __version__
-
-# Set some global constants
-USER_AGENT = f"wikiget/{__version__} (https://github.com/NiLuJe/wikiget) niquests/{niquests_version}"

@@ -17,6 +17,9 @@
 
 """Set up the command-line interface and handle program start and exit."""
 
+# Lazy load modules only used at runtime (Py 3.15+)
+__lazy_modules__ = ["os"]
+
 import logging
 import os
 
@@ -24,11 +27,10 @@ from cyclopts import App, Parameter, config
 from cyclopts.types import Directory, StdioPath
 from rich.traceback import install as install_rich_traceback
 
-from . import USER_AGENT
-from . import __version__ as WIKIGET_VERSION
 from .config import Config
 from .dl import Downloader
 from .logging import configure_logging, console, error_console
+from .version import __version__ as WIKIGET_VERSION
 
 app = App(
     console=console,
@@ -95,7 +97,6 @@ def cli(
     # so, note the start of a new download session.
     logger.info("***")
     logger.info("Starting download session using wikiget %s", WIKIGET_VERSION)
-    logger.debug("User agent: %s", USER_AGENT)
 
     dl = Downloader(input, output, cfg)
     return dl.process_download()

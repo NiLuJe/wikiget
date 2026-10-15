@@ -17,7 +17,10 @@
 
 """Define a File class for representing individual files to be downloaded."""
 
-from collections.abc import Mapping
+# Lazy load modules only used at runtime (Py 3.15+)
+__lazy_modules__ = ["hashlib", "re", "urllib.parse"]
+
+from collections.abc import Mapping, MutableMapping
 import hashlib
 from pathlib import Path
 import re
@@ -57,7 +60,7 @@ class File:
     filename: Path = field(init=False, eq=False)
     dest: Path = field(init=False, eq=False)
     url: str = field(init=False, eq=True)
-    headers: Mapping[str, str] | None = field(default=None, init=False, eq=False)
+    headers: MutableMapping[str, str] | None = field(default=None, init=False, eq=False)
     params: Mapping[str, list[str]] | None = field(default=None, init=False, eq=False)
 
     def __attrs_post_init__(self) -> None:

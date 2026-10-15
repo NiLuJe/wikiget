@@ -17,6 +17,9 @@
 
 """Prepare and process file downloads."""
 
+# Lazy load modules only used at runtime (Py 3.15+)
+__lazy_modules__ = ["collections", "datetime", "functools", "itertools", "signal", "niquests", "rich.progress"]
+
 from collections import Counter
 from datetime import timedelta
 from functools import partial
@@ -26,10 +29,11 @@ from pathlib import Path
 import signal
 from threading import Event
 from types import FrameType
-from typing import Any
+from typing import Any, ClassVar
 
 from cyclopts.types import StdioPath
 import niquests
+from niquests import __version__ as niquests_version
 from rich.progress import (
     BarColumn,
     DownloadColumn,
@@ -43,17 +47,21 @@ from rich.progress import (
     TransferSpeedColumn,
 )
 
-from . import USER_AGENT
 from .config import Config
 from .exceptions import ParseError
 from .file import File
 from .logging import FileLogAdapter, console
 from .parse import batch_files, batch_size
+from .version import __version__ as wikiget_version
 
 logger = logging.getLogger(__name__)
 
 
 class Downloader:
+    USER_AGENT: ClassVar[str] = (
+        f"wikiget/{wikiget_version} (https://github.com/NiLuJe/wikiget) niquests/{niquests_version}"
+    )
+
     def __init__(self, input: StdioPath, output: Path | None, cfg: Config) -> None:
         """Instantiate a downloader instance, following the CLI args."""
 
@@ -77,6 +85,8 @@ class Downloader:
         # And install our SIGINT handler
         self.done_event = Event()
         signal.signal(signal.SIGINT, partial(self.handle_sigint))
+
+        logger.debug("User agent: %s", self.USER_AGENT)
 
     def errors(self) -> int:
         return self.status["errors"]
@@ -176,7 +186,7 @@ class Downloader:
         )
 
         # Setup our UA
-        ua = {"user-agent": USER_AGENT}
+        ua = {"user-agent": self.USER_AGENT}
 
         # NOTE: There's currently only a single A record for upload.wikimedia.org,
         #       so, no need for happy eyeballs.
