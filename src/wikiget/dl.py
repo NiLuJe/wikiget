@@ -375,7 +375,7 @@ class Downloader:
                         self.progress.update(task, advance=len(chunk))
 
                 # Pull the elapsed time for our task out of rich's guts...
-                if delta := get_elapsed_time(self.progress, task) is None:
+                if (delta := get_elapsed_time(self.progress, task)) is None:
                     delta = "?"
 
                 self.progress.console.log(f"Downloaded [bold magenta]{file.filename.name}[/] in [bold yellow]{delta}[/]")
