@@ -285,6 +285,8 @@ class Downloader:
         for line, filename in batch_files(self.input):
             # Abort early if we caught a SIGINT
             if self.done_event.is_set():
+                # Immediately drain the queue, so only the in-flight requests are processed
+                self.q.shutdown(immediate=True)
                 break
 
             file = self.query_filename(line, filename)
