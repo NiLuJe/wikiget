@@ -236,6 +236,8 @@ class Downloader:
             tg.create_task(self.fill_download_queue(), eager_start=True, name="QFill")  # push
 
             # Spin up as many workers as requested to consume queue items, assuming there are any
+            # NOTE: For maximum throughput *in a free-threaded build* (and with non rate-limited remotes),
+            #       each worker could run in a dedicated thread with its own event loop.
             if not self.q.empty():
                 # NOTE: Guarded behind an empty check to avoid deadlocks on get
                 #       if fill_download_queue never actually puts anything in there (e.g., invalid input)
