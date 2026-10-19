@@ -375,7 +375,8 @@ class Downloader:
                         self.progress.update(task, advance=len(chunk))
 
                 # Pull the elapsed time for our task out of rich's guts...
-                delta = get_elapsed_time(self.progress, task) or "?"
+                if delta := get_elapsed_time(self.progress, task) is None:
+                    delta = "?"
 
                 self.progress.console.log(f"Downloaded [bold magenta]{file.filename.name}[/] in [bold yellow]{delta}[/]")
         except OSError as e:
