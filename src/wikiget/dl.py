@@ -21,7 +21,7 @@
 __lazy_modules__ = ["collections", "datetime", "functools", "itertools", "signal", "niquests", "rich.progress"]
 
 import asyncio
-from asyncio import AbstractEventLoop, Event, Queue, QueueShutDown
+from asyncio import AbstractEventLoop, Event, Queue, QueueFull, QueueShutDown
 from collections import Counter
 from datetime import timedelta
 from functools import partial
@@ -245,12 +245,8 @@ class Downloader:
                 for i in range(self.concurrency):
                     tg.create_task(self.dl_worker(s), name=f"DL-{i}")  # pull
 
-            # Spin up another task that will ensure we only keep a few completed progress bars around
-            tg.create_task(self.progress_cleanup(), name="PBar-Cleanup")
-
             # Wait until the queue has been completely drained
             await self.q.join()
-            await self.done_q.join()
 
             # Now that we're done, signal our workers to spin down
             self.q.shutdown()
@@ -322,23 +318,21 @@ class Downloader:
                     await self.process_response(r, file, progress_task)
 
                 # NOTE: A single Progress instance will only ever show as many tasks as the terminal height allows...
-                #       Drop completed tasks to free up space.
-                #       We delegate that to another task via a bounded queue to make sure only a few bars remain visible.
-                await self.done_q.put(progress_task)
+                #       Drop completed tasks to free up space, only keeping a few visible.
+                try:
+                    self.done_q.put_nowait(progress_task)
+                except QueueFull:
+                    # Remove the oldest bar to make space for this one
+                    oldest_task = await self.done_q.get()
+                    self.progress.remove_task(oldest_task)
+                    self.done_q.task_done()
+
+                    await self.done_q.put(progress_task)
+
                 self.overall_progress.advance(self.overall_task)
 
                 # We're done with this work item
                 self.q.task_done()
-            except QueueShutDown:
-                break
-
-    async def progress_cleanup(self):
-        while True:
-            try:
-                progress_task = await self.done_q.get()
-                self.progress.remove_task(progress_task)
-
-                self.done_q.task_done()
             except QueueShutDown:
                 break
 
