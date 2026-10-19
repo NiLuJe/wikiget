@@ -317,7 +317,8 @@ class Downloader:
 
                 # NOTE: A single Progress instance will only ever show as many tasks as the terminal height allows...
                 #       Drop completed tasks to free up space.
-                self.progress.remove_task(progress_task)
+                #       We do this after a small delay to give the user a chance to read the final state.
+                self.loop.call_later(3, self.progress.remove_task, progress_task)
                 self.overall_progress.advance(self.overall_task)
 
                 # We're done with this work item
