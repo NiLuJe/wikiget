@@ -51,6 +51,7 @@ from .exceptions import ParseError
 from .file import File
 from .logging import FileLogAdapter, console
 from .parse import batch_files, batch_size
+from .utils import get_elapsed_time
 from .version import __version__ as WIKIGET_VERSION
 
 logger = logging.getLogger(__name__)
@@ -366,14 +367,7 @@ class Downloader:
                         self.progress.update(task, advance=len(chunk))
 
                 # Pull the elapsed time for our task out of rich's guts...
-                with self.progress._lock:
-                    t = self.progress._tasks[task]
-                    elapsed = t.finished_time if t.finished else t.elapsed
-                    if elapsed is None:
-                        delta = "?"
-                    else:
-                        # NOTE: Its str dunder will do the formatting for us :)
-                        delta = timedelta(seconds=max(0, round(elapsed)))
+                delta = get_elapsed_time(self.progress, task) or "?"
 
                 self.progress.console.log(f"Downloaded [bold magenta]{file.filename.name}[/] in [bold yellow]{delta}[/]")
         except OSError as e:
