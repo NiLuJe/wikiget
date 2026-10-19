@@ -226,24 +226,26 @@ class Downloader:
         #       so, no need for happy eyeballs.
         # NOTE: We *would* use base_url here, but for the fact that we actually support passing full URLs ;).
         # FIXME: Reimplement authentification (c.f., mwclient site_login)
-        async with niquests.AsyncSession(multiplexed=False, hooks=limiter, retries=retry, headers=ua) as s:
-            async with asyncio.TaskGroup() as tg:
-                # Ensure the queue is always filled
-                # NOTE: Started early so we don't shutdown the queue before it has a chance to fill
-                tg.create_task(self.fill_download_queue(), eager_start=True, name="QFill")
+        async with (
+            niquests.AsyncSession(multiplexed=False, hooks=limiter, retries=retry, headers=ua) as s,
+            asyncio.TaskGroup() as tg,
+        ):
+            # Ensure the queue is always filled
+            # NOTE: Started early so we don't shutdown the queue before it has a chance to fill
+            tg.create_task(self.fill_download_queue(), eager_start=True, name="QFill")
 
-                # Spin up as many workers as requested to consume queue items, assuming there are any
-                if not self.q.empty():
-                    # NOTE: Guarded behind an empty check to avoid deadlocks on get
-                    #       if fill_download_queue never actually puts anything in there (e.g., invalid input)
-                    for i in range(self.concurrency):
-                        tg.create_task(self.dl_worker(s), name=f"DL-{i}")
+            # Spin up as many workers as requested to consume queue items, assuming there are any
+            if not self.q.empty():
+                # NOTE: Guarded behind an empty check to avoid deadlocks on get
+                #       if fill_download_queue never actually puts anything in there (e.g., invalid input)
+                for i in range(self.concurrency):
+                    tg.create_task(self.dl_worker(s), name=f"DL-{i}")
 
-                # Wait for the queue to be completely drained
-                await self.q.join()
+            # Wait for the queue to be completely drained
+            await self.q.join()
 
-                # Signal our workers to spin down
-                self.q.shutdown()
+            # Signal our workers to spin down
+            self.q.shutdown()
 
     def parse_input(self, dl: str) -> File:
         """Prepare to download a file by parsing the filename or URL.
