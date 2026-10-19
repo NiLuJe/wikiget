@@ -21,7 +21,7 @@
 __lazy_modules__ = ["collections", "datetime", "functools", "itertools", "signal", "niquests", "rich.progress"]
 
 import asyncio
-from asyncio import AbstractEventLoop, Event, Queue, QueueFull, QueueShutDown
+from asyncio import AbstractEventLoop, Event, Queue, QueueEmpty, QueueFull, QueueShutDown
 from collections import Counter
 from datetime import timedelta
 from functools import partial
@@ -250,7 +250,25 @@ class Downloader:
 
             # Now that we're done, signal our workers to spin down
             self.q.shutdown()
+            # NOTE: We never actually catch QueueShutDown for this one, so this is just for semantics.
+            #       It gets filled by dl_worker, which may break early on SIGINT, *without* draining it.
+            #       Even in a normal complete run, since we wait for it to be full before dropping a bar,
+            #       we'll *always* leave at most a queue's worth of progress bars visible.
+            #       This is also why we don't join that queue: it *never* actually goes empty.
             self.done_q.shutdown()
+
+        # If you *really* want to clear leftover complete bars on exit...
+        # self.progress_cleanup()
+
+    def progress_cleanup(self) -> None:
+        """Manually drain the completed progress bar queue"""
+        while True:
+            try:
+                task_id = self.done_q.get_nowait()
+                self.progress.remove_task(task_id)
+                self.done_q.task_done()
+            except QueueEmpty, QueueShutDown:
+                break
 
     def parse_input(self, dl: str) -> File:
         """Prepare to download a file by parsing the filename or URL.
