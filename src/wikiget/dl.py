@@ -257,7 +257,7 @@ class Downloader:
         except ParseError:
             raise
 
-        # check if the destination file already exists; don't overwrite unless the user says
+        # Check if the destination file already exists; don't overwrite unless the user says
         if file.dest.is_file() and file.dest.stat().st_size != 0 and not self.force_redownload:
             msg = f"[{file.dest}] File already exists; skipping download"
             raise FileExistsError(msg)
@@ -296,7 +296,7 @@ class Downloader:
                 # ensuring we don't flood the queue upfront
                 await self.q.put(file)
             else:
-                # Advance by one immediately if query_filename failed
+                # Account for invalid input immediately
                 self.overall_progress.advance(self.overall_task)
 
     async def dl_worker(self, s: niquests.AsyncSession):
