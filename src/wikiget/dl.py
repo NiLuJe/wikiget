@@ -242,11 +242,12 @@ class Downloader:
             self.overall_task = self.overall_progress.add_task("Download...", total=batch_size(self.input))
             async with asyncio.TaskGroup() as tg:
                 # Ensure the queue is always filled
-                tg.create_task(self.fill_download_queue(), eager_start=True)
+                # NOTE: Started early so we don't shutdown the queue before it has a chance to fill
+                tg.create_task(self.fill_download_queue(), eager_start=True, name="QFill")
 
                 # Spin up as many workers as requested to consume queue items
-                for _ in range(self.concurrency):
-                    tg.create_task(self.dl_worker(s))
+                for i in range(self.concurrency):
+                    tg.create_task(self.dl_worker(s), name=f"DL-{i}")
 
                 # Wait for the queue to be completely drained
                 await self.q.join()
