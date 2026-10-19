@@ -20,7 +20,7 @@
 # Lazy load modules only used at runtime (Py 3.15+)
 __lazy_modules__ = ["more_itertools"]
 
-from collections.abc import Iterable
+from collections.abc import Generator
 import logging
 import sys
 
@@ -54,7 +54,7 @@ def batch_size(batch_file: StdioPath) -> int:
     return size
 
 
-def batch_files(batch_file: StdioPath) -> Iterable[tuple[int, str]]:
+def batch_files(batch_file: StdioPath) -> Generator[tuple[int, str]]:
     """Parse a batch file or stdin for valid input.
     Any blank lines or lines starting with '#' are skipped.
 

@@ -21,11 +21,10 @@
 __lazy_modules__ = ["asyncio", "collections", "datetime", "functools", "itertools", "signal", "niquests", "rich.progress"]
 
 import asyncio
-from asyncio import AbstractEventLoop, Event
+from asyncio import AbstractEventLoop, Event, Queue, QueueShutDown
 from collections import Counter
 from datetime import timedelta
 from functools import partial
-from itertools import batched
 import logging
 from pathlib import Path
 import signal
@@ -83,6 +82,8 @@ class Downloader:
             }
         )
 
+        self.q = Queue(maxsize=self.concurrency)
+
         # And install our SIGINT handler
         self.done_event = Event()
         loop = asyncio.get_running_loop()
@@ -113,7 +114,7 @@ class Downloader:
 
     def handle_sigint(self, loop: AbstractEventLoop) -> Any:
         self.done_event.set()
-        self.console.log("Caught a [bold red]SIGINT[/], tearing down pending tasks...")
+        self.console.log("Caught a [bold red]SIGINT[/], winding down...")
 
         # Forces an immediate teardown, at the risk of leaving incomplete data around...
         # raise KeyboardInterrupt
@@ -239,33 +240,21 @@ class Downloader:
         # FIXME: Reimplement authentification (c.f., mwclient site_login)
         async with niquests.AsyncSession(multiplexed=False, hooks=limiter, retries=retry, headers=ua) as s:
             self.overall_task = self.overall_progress.add_task("Download...", total=batch_size(self.input))
-            for batch in batched(batch_files(self.input), self.concurrency, strict=False):
-                # Abort early w/o inflating the error count if we caught a SIGINT
-                if self.done_event.is_set():
-                    break
+            async with asyncio.TaskGroup() as tg:
+                # Ensure the queue is always filled
+                tg.create_task(self.fill_download_queue())
+                # Yield to fill_download_queue so it has a chance to fill the queue before we shut it down
+                await asyncio.sleep(0)
 
-                downloads = {line: self.query_filename(line, filename) for line, filename in batch}
-                requests = {
-                    file: s.get(file.url, stream=True, headers=file.headers, params=file.params)
-                    for file in downloads.values()
-                    if file
-                }
-                # Start tasks ASAP so we get an accurate elapsed time
-                tasks = {
-                    file: self.progress.add_task("download", filename=str(file.dest.name), total=None)
-                    for file in downloads.values()
-                    if file
-                }
+                # Spin up as many workers as requested to consume queue items
+                for _ in range(self.concurrency):
+                    tg.create_task(self.dl_worker(s))
 
-                # Advance progress bar for lines where query_filename failed
-                self.overall_progress.advance(self.overall_task, advance=len(downloads) - len(requests))
+                # Wait for the queue to be completely drained
+                await self.q.join()
 
-                # await s.gather(*responses.values())  # For mutliplexed=true
-                responses = await asyncio.gather(*requests.values())
-                async with asyncio.TaskGroup() as tg:
-                    for file, r in zip(requests.keys(), responses, strict=True):
-                        task = tasks[file]
-                        tg.create_task(self.handle_response(r, file, task))
+                # Signal our workers to spin down
+                self.q.shutdown()
 
     def query_filename(self, line_num: int, line: str) -> File | None:
         """Prepare a download and compute the canonical Commons download URL
@@ -285,6 +274,21 @@ class Downloader:
 
         return None
 
+    async def fill_download_queue(self) -> None:
+        for line, filename in batch_files(self.input):
+            # Abort early if we caught a SIGINT
+            if self.done_event.is_set():
+                break
+
+            file = self.query_filename(line, filename)
+            if file:
+                # This will block until a slot is available,
+                # ensuring we don't flood the queue upfront
+                await self.q.put(file)
+            else:
+                # Advance by one immediately if query_filename failed
+                self.overall_progress.advance(self.overall_task)
+
     async def handle_response(self, r: niquests.AsyncResponse, file: File, task: TaskID) -> None:
         try:
             await self.process_response(r, file, task)
@@ -294,6 +298,19 @@ class Downloader:
             #       Drop completed tasks to free up space.
             self.progress.remove_task(task)
             self.overall_progress.advance(self.overall_task)
+
+            # We're done with this
+            self.q.task_done()
+
+    async def dl_worker(self, s: niquests.AsyncSession):
+        while True:
+            try:
+                file = await self.q.get()
+                progress_task = self.progress.add_task("download", filename=str(file.dest.name), total=None)
+                r = await s.get(file.url, stream=True, headers=file.headers, params=file.params)
+                await self.handle_response(r, file, progress_task)
+            except QueueShutDown:
+                break
 
     async def process_response(self, r: niquests.AsyncResponse, file: File, task: TaskID) -> None:
         """Fetch file information and contents if the file exists and save it to disk."""
