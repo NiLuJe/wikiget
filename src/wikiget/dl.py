@@ -229,8 +229,10 @@ class Downloader:
                 # NOTE: Started early so we don't shutdown the queue before it has a chance to fill
                 tg.create_task(self.fill_download_queue(), eager_start=True, name="QFill")
 
-                # Spin up as many workers as requested to consume queue items, asumming there are any
+                # Spin up as many workers as requested to consume queue items, assuming there are any
                 if not self.q.empty():
+                    # NOTE: Guarded behind an empty check to avoid deadlocks on get
+                    #       if fill_download_queue never actually puts anything in there (e.g., invalid input)
                     for i in range(self.concurrency):
                         tg.create_task(self.dl_worker(s), name=f"DL-{i}")
 
