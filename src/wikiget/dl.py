@@ -173,8 +173,9 @@ class Downloader:
             delta = timedelta(seconds=round(end_time - self.start_time))
 
             # We don't see INFO on console w/o verbose output...
-            for fn in [logger.info, console.log][: self.cfg.verbose and 1 or 2]:
-                fn("Downloaded %d items in %s (%.2f rps)", successes, delta, successes / delta.total_seconds())
+            logger.info("Downloaded %d items in %s (%.2f rps)", successes, delta, successes / delta.total_seconds())
+            if self.cfg.verbose == 0:
+                console.log(f"Downloaded {successes} items in {delta}")
 
         # Return a non-zero exit code if any meaningful problems were encountered,
         # even if some downloads completed successfully
