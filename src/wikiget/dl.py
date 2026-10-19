@@ -89,7 +89,7 @@ class Downloader:
         loop.add_signal_handler(signal.SIGINT, partial(self.handle_sigint, loop))
 
         logger.debug("User agent: %s", self.USER_AGENT)
-        logger.debug("Rate limit: %.1f rps", self.rate_limit)
+        logger.debug("Rate limit: %.2f rps", self.rate_limit)
 
         self.start_time = loop.time()
 
