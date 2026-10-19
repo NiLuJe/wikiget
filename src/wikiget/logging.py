@@ -65,8 +65,6 @@ def configure_logging(verbosity: int, logfile: Path | None, *, quiet: bool) -> Q
     elif quiet:
         loglevel = logging.ERROR
 
-    logging.getLogger("asyncio").setLevel(logging.DEBUG)
-
     # configure logging:
     # console log level is set via -v, -vv, and -q options;
     # file log level is always debug (TODO: make this user configurable)
