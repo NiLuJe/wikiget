@@ -150,27 +150,6 @@ class Downloader:
             console=self.console,
         )
 
-    def prep_download(self, dl: str) -> File:
-        """Prepare to download a file by parsing the filename or URL.
-
-        :param dl: a string representing the file or URL to download
-        :type dl: str
-        :raises FileExistsError: the destination file already exists on disk
-        :return: a File object representing the file to download
-        :rtype: wikiget.file.File
-        """
-        try:
-            file = File(dl, output=self.output)
-        except ParseError:
-            raise
-
-        # check if the destination file already exists; don't overwrite unless the user says
-        if file.dest.is_file() and file.dest.stat().st_size != 0 and not self.force_redownload:
-            msg = f"[{file.dest}] File already exists; skipping download"
-            raise FileExistsError(msg)
-
-        return file
-
     async def download(self) -> int:
         with (
             self.overall_progress_bar() as self.overall_progress,
@@ -255,6 +234,27 @@ class Downloader:
                 # Signal our workers to spin down
                 self.q.shutdown()
 
+    def prep_download(self, dl: str) -> File:
+        """Prepare to download a file by parsing the filename or URL.
+
+        :param dl: a string representing the file or URL to download
+        :type dl: str
+        :raises FileExistsError: the destination file already exists on disk
+        :return: a File object representing the file to download
+        :rtype: wikiget.file.File
+        """
+        try:
+            file = File(dl, output=self.output)
+        except ParseError:
+            raise
+
+        # check if the destination file already exists; don't overwrite unless the user says
+        if file.dest.is_file() and file.dest.stat().st_size != 0 and not self.force_redownload:
+            msg = f"[{file.dest}] File already exists; skipping download"
+            raise FileExistsError(msg)
+
+        return file
+
     def query_filename(self, line_num: int, line: str) -> File | None:
         """Prepare a download and compute the canonical Commons download URL
 
@@ -305,7 +305,7 @@ class Downloader:
         while True:
             try:
                 file = await self.q.get()
-                progress_task = self.progress.add_task("download", filename=str(file.dest.name), total=None)
+                progress_task = self.progress.add_task("download", filename=str(file.filename.name), total=None)
                 r = await s.get(file.url, stream=True, headers=file.headers, params=file.params)
                 await self.handle_response(r, file, progress_task)
             except QueueShutDown:
@@ -315,7 +315,7 @@ class Downloader:
         """Fetch file information and contents if the file exists and save it to disk."""
 
         # prepend the current filename to all log messages
-        adapter = FileLogAdapter(logger, {"filename": file.filename})
+        adapter = FileLogAdapter(logger, {"filename": file.filename.name})
 
         # Minimal error handling
         try:
@@ -328,7 +328,7 @@ class Downloader:
             adapter.error(f"File could not be downloaded: {e}")
             self.increment_errors()
             self.progress.console.log(
-                f"[bold red]FAILED[/] to download [bold magenta]{file.filename}[/] ([bold yellow]{r.status_code}[/])"
+                f"[bold red]FAILED[/] to download [bold magenta]{file.filename.name}[/] ([bold yellow]{r.status_code}[/])"
             )
             return
 
@@ -336,7 +336,7 @@ class Downloader:
         # Poor man's hash check, MD5
         remote_hash = str(r.oheaders.etag)
 
-        filename_log = f"Downloading '{file.filename}' ({remote_size} bytes)"
+        filename_log = f"Downloading '{file.filename.name}' ({remote_size} bytes)"
         adapter.info(filename_log)
         adapter.info(f"{file.url}")
 
@@ -368,12 +368,14 @@ class Downloader:
                     # NOTE: Its str dunder will do the formatting for us :)
                     delta = timedelta(seconds=max(0, round(elapsed)))
 
-                self.progress.console.log(f"Downloaded [bold magenta]{file.filename}[/] in [bold yellow]{delta}[/]")
+                self.progress.console.log(f"Downloaded [bold magenta]{file.filename.name}[/] in [bold yellow]{delta}[/]")
         except OSError as e:
             adapter.error(f"File could not be written: {e}")
             file.dest.unlink(missing_ok=True)
             self.increment_errors()
-            self.progress.console.log(f"[bold red]FAILED[/] to write local file for [bold magenta]{file.filename}[/]")
+            self.progress.console.log(
+                f"[bold red]FAILED[/] to write local file for [bold magenta]{file.filename.name}[/]"
+            )
             return
 
         # Verify file integrity and log the details
@@ -383,12 +385,12 @@ class Downloader:
             adapter.error(f"File downloaded but could not be verified: {e}")
             file.dest.unlink()
             self.increment_errors()
-            self.progress.console.log(f"[bold red]FAILED[/] to verify downloaded [bold magenta]{file.filename}[/]")
+            self.progress.console.log(f"[bold red]FAILED[/] to verify downloaded [bold magenta]{file.filename.name}[/]")
             return
 
         if hash_ok:
             # At this point, we've successfully downloaded the file
-            success_log = f"'{file.filename}' downloaded"
+            success_log = f"'{file.filename.name}' downloaded"
             if self.output:
                 success_log += f" to '{file.dest}'"
             adapter.info(success_log)
@@ -396,7 +398,7 @@ class Downloader:
             adapter.error("Hash mismatch! Downloaded file may be corrupt.")
             file.dest.unlink()
             self.increment_errors()
-            self.progress.console.log(f"[bold red]CORRUPT[/] download for [bold magenta]{file.filename}[/]")
+            self.progress.console.log(f"[bold red]CORRUPT[/] download for [bold magenta]{file.filename.name}[/]")
 
         self.increment_successes()
         return
