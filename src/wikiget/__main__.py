@@ -16,8 +16,15 @@
 # along with Wikiget. If not, see <https://www.gnu.org/licenses/>.
 
 import asyncio
+import os
+import sys
+import warnings
 
 from .wikiget import app
 
 if __name__ == "__main__":
-    asyncio.run(app())
+    if not sys.warnoptions:
+        warnings.simplefilter("default")  # Change the filter in this process
+        os.environ["PYTHONWARNINGS"] = "default"  # Also affect subprocesses
+
+    asyncio.run(app(), debug=True)
