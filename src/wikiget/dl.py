@@ -172,7 +172,9 @@ class Downloader:
             end_time = self.loop.time()
             delta = timedelta(seconds=round(end_time - self.start_time))
 
-            logger.info("Downloaded %d items in %s (%.2f rps)", successes, delta, successes / delta.total_seconds())
+            # We don't see INFO on console w/o verbose output...
+            for fn in [logger.info, console.log][: self.cfg.verbose and 1 or 2]:
+                fn("Downloaded %d items in %s (%.2f rps)", successes, delta, successes / delta.total_seconds())
 
         # Return a non-zero exit code if any meaningful problems were encountered,
         # even if some downloads completed successfully
@@ -203,8 +205,6 @@ class Downloader:
 
         # Setup auto-retry, as we're very likely to hit 429 on the way...
         # c.f., https://www.mediawiki.org/wiki/Wikimedia_APIs/Rate_limits
-        # NOTE: We *could* also add a rate limiter on *our* end here, if need be,
-        #       c.f., https://niquests.readthedocs.io/en/latest/user/advanced.html#rate-limiting
         retry = niquests.RetryConfiguration(
             total=10,
             # NOTE: CommonsDownloadTool also attempts to retry on 403, which is... weird?
