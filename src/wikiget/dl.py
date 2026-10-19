@@ -116,7 +116,7 @@ class Downloader:
         self.done_event.set()
         self.console.log("Caught a [bold red]SIGINT[/], winding down...")
 
-        # Forces an immediate teardown, at the risk of leaving incomplete data around...
+        # NOTE: This would force an immediate teardown, at the risk of leaving incomplete data around...
         # raise KeyboardInterrupt
 
     def overall_progress_bar(self) -> Progress:
@@ -366,13 +366,14 @@ class Downloader:
                         self.progress.update(task, advance=len(chunk))
 
                 # Pull the elapsed time for our task out of rich's guts...
-                t = self.progress._tasks[task]
-                elapsed = t.finished_time if t.finished else t.elapsed
-                if elapsed is None:
-                    delta = "?"
-                else:
-                    # NOTE: Its str dunder will do the formatting for us :)
-                    delta = timedelta(seconds=max(0, round(elapsed)))
+                with self.progress._lock:
+                    t = self.progress._tasks[task]
+                    elapsed = t.finished_time if t.finished else t.elapsed
+                    if elapsed is None:
+                        delta = "?"
+                    else:
+                        # NOTE: Its str dunder will do the formatting for us :)
+                        delta = timedelta(seconds=max(0, round(elapsed)))
 
                 self.progress.console.log(f"Downloaded [bold magenta]{file.filename.name}[/] in [bold yellow]{delta}[/]")
         except OSError as e:
