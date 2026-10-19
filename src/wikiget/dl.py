@@ -298,26 +298,22 @@ class Downloader:
                 # Advance by one immediately if query_filename failed
                 self.overall_progress.advance(self.overall_task)
 
-    async def handle_response(self, r: niquests.AsyncResponse, file: File, task: TaskID) -> None:
-        try:
-            await self.process_response(r, file, task)
-        finally:
-            await r.close()
-            # NOTE: A single Progress instance will only ever show as many tasks as the terminal height allows...
-            #       Drop completed tasks to free up space.
-            self.progress.remove_task(task)
-            self.overall_progress.advance(self.overall_task)
-
-            # We're done with this
-            self.q.task_done()
-
     async def dl_worker(self, s: niquests.AsyncSession):
         while True:
             try:
                 file = await self.q.get()
                 progress_task = self.progress.add_task("download", filename=str(file.filename.name), total=None)
-                r = await s.get(file.url, stream=True, headers=file.headers, params=file.params)
-                await self.handle_response(r, file, progress_task)
+
+                async with await s.get(file.url, stream=True, headers=file.headers, params=file.params) as r:
+                    await self.process_response(r, file, progress_task)
+
+                # NOTE: A single Progress instance will only ever show as many tasks as the terminal height allows...
+                #       Drop completed tasks to free up space.
+                self.progress.remove_task(progress_task)
+                self.overall_progress.advance(self.overall_task)
+
+                # We're done with this work item
+                self.q.task_done()
             except QueueShutDown:
                 break
 
