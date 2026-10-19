@@ -192,6 +192,11 @@ class Downloader:
         :rtype: int
         """
 
+        item_count = batch_size(self.input)
+        if item_count < 1:
+            logger.warning("Nothing to download!")
+            return
+
         # Setup auto-retry, as we're very likely to hit 429 on the way...
         # c.f., https://www.mediawiki.org/wiki/Wikimedia_APIs/Rate_limits
         # NOTE: We *could* also add a rate limiter on *our* end here, if need be,
@@ -218,7 +223,7 @@ class Downloader:
         # NOTE: We *would* use base_url here, but for the fact that we actually support passing full URLs ;).
         # FIXME: Reimplement authentification (c.f., mwclient site_login)
         async with niquests.AsyncSession(multiplexed=False, hooks=limiter, retries=retry, headers=ua) as s:
-            self.overall_task = self.overall_progress.add_task("Download...", total=batch_size(self.input))
+            self.overall_task = self.overall_progress.add_task("Download...", total=item_count)
             async with asyncio.TaskGroup() as tg:
                 # Ensure the queue is always filled
                 # NOTE: Started early so we don't shutdown the queue before it has a chance to fill
