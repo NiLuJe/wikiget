@@ -87,13 +87,13 @@ class Downloader:
 
         # And install our SIGINT handler
         self.done_event = Event()
-        loop = asyncio.get_running_loop()
-        loop.add_signal_handler(signal.SIGINT, partial(self.handle_sigint, loop))
+        self.loop = asyncio.get_running_loop()
+        self.loop.add_signal_handler(signal.SIGINT, partial(self.handle_sigint, self.loop))
 
         logger.debug("User agent: %s", self.USER_AGENT)
         logger.debug("Rate limit: %.2f rps", self.rate_limit)
 
-        self.start_time = loop.time()
+        self.start_time = self.loop.time()
 
     def errors(self) -> int:
         return self.status["errors"]
@@ -169,7 +169,7 @@ class Downloader:
             )
         successes = self.successes()
         if successes:
-            end_time = asyncio.get_running_loop().time()
+            end_time = self.loop.time()
             delta = timedelta(seconds=round(end_time - self.start_time))
 
             logger.info("Downloaded %d items in %s (%.2f rps)", successes, delta, successes / delta.total_seconds())
