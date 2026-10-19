@@ -155,7 +155,7 @@ class Downloader:
             self.overall_progress_bar() as self.overall_progress,
             self.progress_bar() as self.progress,
         ):
-            await self.process_download()
+            await self.download_loop()
 
         errors, warnings = self.errors(), self.warnings()
         if errors or warnings:
@@ -177,7 +177,7 @@ class Downloader:
         # even if some downloads completed successfully
         return 1 if errors else 0
 
-    async def process_download(self) -> None:
+    async def download_loop(self) -> None:
         """Process the download target given in the CLI args as a single file or batch file.
 
         If the target is a batch file, process with batch_download and return the number of
@@ -242,7 +242,7 @@ class Downloader:
                 # Signal our workers to spin down
                 self.q.shutdown()
 
-    def prep_download(self, dl: str) -> File:
+    def parse_input(self, dl: str) -> File:
         """Prepare to download a file by parsing the filename or URL.
 
         :param dl: a string representing the file or URL to download
@@ -263,7 +263,7 @@ class Downloader:
 
         return file
 
-    def query_filename(self, line_num: int, line: str) -> File | None:
+    def get_file(self, line_num: int, line: str) -> File | None:
         """Prepare a download and compute the canonical Commons download URL
 
         Returns a File instance on success or None on failure.
@@ -271,7 +271,7 @@ class Downloader:
 
         logger.info("Processing '%s' @ line %i", line, line_num)
         try:
-            return self.prep_download(line)
+            return self.parse_input(line)
         except ParseError as e:
             logger.error("%s (@ line %i)", str(e), line_num)
             self.increment_errors()
@@ -289,7 +289,7 @@ class Downloader:
                 self.q.shutdown(immediate=True)
                 break
 
-            file = self.query_filename(line, filename)
+            file = self.get_file(line, filename)
             if file:
                 # This will block until a slot is available,
                 # ensuring we don't flood the queue upfront
