@@ -221,8 +221,11 @@ class Downloader:
         # Setup our UA
         ua = {"user-agent": self.USER_AGENT}
 
-        # NOTE: Setup a rate limiter on our end to try to avoid hitting 429...
-        limiter = niquests.AsyncLeakyBucketLimiter(rate=self.rate_limit)
+        if self.rate_limit is not None:
+            # NOTE: Setup a rate limiter on our end to try to avoid hitting 429...
+            limiter = niquests.AsyncLeakyBucketLimiter(rate=self.rate_limit)
+        else:
+            limiter = None
 
         # NOTE: There's currently only a single A record for upload.wikimedia.org,
         #       so, no need for happy eyeballs.

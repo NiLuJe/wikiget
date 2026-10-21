@@ -55,5 +55,5 @@ class Config:
     "Process the input but stop short of actually downloading anything."
     concurrency: Annotated[PositiveInt, Parameter(alias="-j")] = 3
     "Amount of downloads to start in parallel. Check Wikimedia's current policies at https://www.mediawiki.org/wiki/Wikimedia_APIs/Rate_limits before raising this."
-    rps: PositiveFloat = 0.98
-    "Download rate limit, in requests per second."
+    rps: Annotated[PositiveFloat | None, Parameter(negative_none="no-")] = 0.98
+    "Download rate limit (if any), in requests per second."
