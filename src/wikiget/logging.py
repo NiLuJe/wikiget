@@ -83,7 +83,7 @@ def configure_logging(verbosity: int, logfile: Path | None, *, quiet: bool) -> Q
     logger.addHandler(qh)
 
     # Set up console logging
-    ch = RichHandler(console=console)
+    ch = RichHandler(console=console, log_time_format="[%X]")
     ch.setLevel(loglevel)
     ch.setFormatter(logging.Formatter(console_log_format))
 

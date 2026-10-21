@@ -379,6 +379,7 @@ class Downloader:
             return
 
         remote_size = int(r.headers.get("content-length", 0))  # int(str(r.oheaders.content_length))
+        # FIXME: Disable this if input was a URL (via a dedicated File field?)...
         # Poor man's hash check, MD5
         if "etag" in r.oheaders:
             remote_hash = str(r.oheaders.etag)
