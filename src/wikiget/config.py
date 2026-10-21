@@ -34,6 +34,11 @@ flags = Group(
     default_parameter=Parameter(negative="", show_default=False),
 )
 
+# Can be turned off via --no-$param
+toggleable = Group(
+    default_parameter=Parameter(negative_none="no-"),
+)
+
 
 # Flatten parameters in a single object we can pass around
 @Parameter(name="*")
@@ -50,10 +55,10 @@ class Config:
     force: Annotated[bool, Parameter(group=flags)] = False
     "Overwrite existing files in case of conflicts."
     batch: Annotated[bool, Parameter(group=flags)] = False
-    "Treat INPUT as a text file containing one entry per line, in the same format as input would otherwise expect."
+    "Treat INPUT as a text file containing one entry per line, in the same format as INPUT would otherwise expect."
     dry_run: Annotated[bool, Parameter(alias="-n", group=flags)] = False
     "Process the input but stop short of actually downloading anything."
     concurrency: Annotated[PositiveInt, Parameter(alias="-j")] = 3
     "Amount of downloads to start in parallel. Check Wikimedia's current policies at https://www.mediawiki.org/wiki/Wikimedia_APIs/Rate_limits before raising this."
-    rps: Annotated[PositiveFloat | None, Parameter(negative_none="no-")] = 0.98
+    rps: Annotated[PositiveFloat | None, Parameter(group=toggleable)] = 0.98
     "Download rate limit (if any), in requests per second."
