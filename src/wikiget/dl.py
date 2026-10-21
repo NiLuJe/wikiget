@@ -371,7 +371,7 @@ class Downloader:
             #       r with niquests
             r.raise_for_status()
         except niquests.HTTPError as e:
-            adapter.error(f"File could not be downloaded: {e}")
+            adapter.error("File could not be downloaded: %s", e)
             self.increment_errors()
             self.progress.console.log(
                 f"[bold red]FAILED[/] to download [bold magenta]{file.filename.name}[/] ([bold yellow]{r.status_code}[/])"
@@ -380,11 +380,17 @@ class Downloader:
 
         remote_size = int(r.headers.get("content-length", 0))  # int(str(r.oheaders.content_length))
         # Poor man's hash check, MD5
-        remote_hash = str(r.oheaders.etag)
+        if "etag" in r.oheaders:
+            remote_hash = str(r.oheaders.etag)
 
-        filename_log = f"Downloading '{file.filename.name}' ({remote_size} bytes)"
-        adapter.info(filename_log)
-        adapter.info(f"{file.url}")
+            # NGINX doesn't use a checksum, it just combines mtime & size
+            # c.f., https://github.com/nginx/nginx/blob/140aa942711868a8daeb95810bc9a81f272ada72/src/http/ngx_http_core_module.c#L1773-L1776
+            if "-" in remote_hash:
+                remote_hash = None
+        else:
+            remote_hash = None
+
+        adapter.info("Downloading `%s` (%d bytes) from %s", file.filename.name, remote_size, file.url)
 
         if self.dry_run:
             adapter.warning("Dry run; download skipped")
@@ -411,7 +417,7 @@ class Downloader:
 
                 self.progress.console.log(f"Downloaded [bold magenta]{file.filename.name}[/] in [bold yellow]{delta}[/]")
         except OSError as e:
-            adapter.error(f"File could not be written: {e}")
+            adapter.error("File could not be written: %s", e)
             file.dest.unlink(missing_ok=True)
             self.increment_errors()
             self.progress.console.log(
@@ -419,11 +425,17 @@ class Downloader:
             )
             return
 
-        # Verify file integrity and log the details
+        if remote_hash is None:
+            # No usable checksum, abort early
+            adapter.warning("No usable remote checksum, can't verify download!")
+            self.increment_successes()
+            return
+
+        # If possible, verify file integrity and log the details
         try:
             hash_ok = file.matches_checksum(remote_hash)
         except OSError as e:
-            adapter.error(f"File downloaded but could not be verified: {e}")
+            adapter.error("File downloaded but could not be verified: %s", e)
             file.dest.unlink()
             self.increment_errors()
             self.progress.console.log(f"[bold red]FAILED[/] to verify downloaded [bold magenta]{file.filename.name}[/]")
