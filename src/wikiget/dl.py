@@ -300,7 +300,7 @@ class Downloader:
         Returns a File instance on success or None on failure.
         """
 
-        logger.info("Processing '%s' @ line %i", line, line_num)
+        logger.info("Processing `%s` @ line %i", line, line_num)
         try:
             return self.parse_input(line)
         except ParseError as e:
@@ -379,15 +379,16 @@ class Downloader:
             return
 
         remote_size = int(r.headers.get("content-length", 0))  # int(str(r.oheaders.content_length))
-        # FIXME: Disable this if input was a URL (via a dedicated File field?)...
-        # Poor man's hash check, MD5
-        if "etag" in r.oheaders:
+        # On WM only, poor man's hash check, MD5
+        if file.verify and "etag" in r.oheaders:
             remote_hash = str(r.oheaders.etag)
 
-            # NGINX doesn't use a checksum, it just combines mtime & size
+            # Extremely minimal sanity check of the etag string, as the implementation varies between servers,
+            # e.g., NGINX doesn't use a checksum, it just combines mtime & size,
             # c.f., https://github.com/nginx/nginx/blob/140aa942711868a8daeb95810bc9a81f272ada72/src/http/ngx_http_core_module.c#L1773-L1776
             if "-" in remote_hash:
                 remote_hash = None
+                adapter.warning("ETag %s doesn't look like a checksum, can't verify download!", remote_hash)
         else:
             remote_hash = None
 
@@ -428,7 +429,6 @@ class Downloader:
 
         if remote_hash is None:
             # No usable checksum, abort early
-            adapter.warning("No usable remote checksum, can't verify download!")
             self.increment_successes()
             return
 

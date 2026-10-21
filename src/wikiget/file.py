@@ -61,6 +61,7 @@ class File:
     url: str = field(init=False, eq=True)
     headers: MutableMapping[str, str] | None = field(default=None, init=False, eq=False)
     params: Mapping[str, list[str]] | None = field(default=None, init=False, eq=False)
+    verify: bool = field(default=True, init=False, eq=False)
 
     def __attrs_post_init__(self) -> None:
         # NOTE: Validators (if any) have already run by then
@@ -80,6 +81,10 @@ class File:
             self.url = self._compute_commons_url()
             self.headers = {"referer": self._compute_referer_url()}
             self.params = self.COMMONS_URL_PARAMS
+        else:
+            # Skip checksum verification on non-WM input,
+            # as we can't know how the ETag content may be generated...
+            self.verify = False
 
     def _get_filename(self) -> str:
         # First, check if the input isn't already a proper URL
