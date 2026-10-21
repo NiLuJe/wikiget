@@ -396,7 +396,7 @@ class Downloader:
         else:
             remote_hash = None
 
-        adapter.info("Downloading `%s` (%d bytes) from %s", file.filename.name, remote_size, file.url)
+        adapter.info("Downloading %d bytes from %s", remote_size, file.url)
 
         if self.dry_run:
             adapter.warning("Dry run; download skipped")
