@@ -92,6 +92,7 @@ class Downloader:
         self.loop.add_signal_handler(signal.SIGINT, partial(self.handle_sigint, self.loop))
 
         logger.debug("User agent: %s", self.USER_AGENT)
+        # NOTE: Fun fact: when self.rate_limit is None, logger just skips the message entirely :)
         logger.debug("Rate limit: %.2f rps", self.rate_limit)
 
         self.start_time = self.loop.time()
