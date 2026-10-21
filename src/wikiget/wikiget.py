@@ -62,8 +62,8 @@ async def cli(
     Parameters
     ----------
     input:
-        Name of the file to download, with the File: prefix;
-        or the URL of its file description page.
+        Name of the file to download, with the File: or Image: prefix for a Commons file;
+        or a URL.
     output:
         Path in which to store the downloaded file;
         or output directory in which to store the files in batch mode.
