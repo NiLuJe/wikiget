@@ -388,8 +388,8 @@ class Downloader:
                 # e.g., NGINX doesn't use a checksum, it just combines mtime & size,
                 # c.f., https://github.com/nginx/nginx/blob/140aa942711868a8daeb95810bc9a81f272ada72/src/http/ngx_http_core_module.c#L1773-L1776
                 if "-" in remote_hash:
-                    remote_hash = None
                     adapter.warning("ETag %s doesn't look like a checksum, can't verify download!", remote_hash)
+                    remote_hash = None
             else:
                 adapter.warning("No ETag found, can't verify download!")
                 remote_hash = None
