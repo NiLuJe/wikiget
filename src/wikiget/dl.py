@@ -380,15 +380,19 @@ class Downloader:
 
         remote_size = int(r.headers.get("content-length", 0))  # int(str(r.oheaders.content_length))
         # On WM only, poor man's hash check, MD5
-        if file.verify and "etag" in r.oheaders:
-            remote_hash = str(r.oheaders.etag)
+        if file.verify:
+            if "etag" in r.oheaders:
+                remote_hash = str(r.oheaders.etag)
 
-            # Extremely minimal sanity check of the etag string, as the implementation varies between servers,
-            # e.g., NGINX doesn't use a checksum, it just combines mtime & size,
-            # c.f., https://github.com/nginx/nginx/blob/140aa942711868a8daeb95810bc9a81f272ada72/src/http/ngx_http_core_module.c#L1773-L1776
-            if "-" in remote_hash:
+                # Extremely minimal sanity check of the etag string, as the implementation varies between servers,
+                # e.g., NGINX doesn't use a checksum, it just combines mtime & size,
+                # c.f., https://github.com/nginx/nginx/blob/140aa942711868a8daeb95810bc9a81f272ada72/src/http/ngx_http_core_module.c#L1773-L1776
+                if "-" in remote_hash:
+                    remote_hash = None
+                    adapter.warning("ETag %s doesn't look like a checksum, can't verify download!", remote_hash)
+            else:
+                adapter.warning("No ETag found, can't verify download!")
                 remote_hash = None
-                adapter.warning("ETag %s doesn't look like a checksum, can't verify download!", remote_hash)
         else:
             remote_hash = None
 
