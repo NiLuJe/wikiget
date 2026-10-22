@@ -20,6 +20,7 @@ __lazy_modules__ = ["datetime"]
 
 from datetime import timedelta
 
+from rich import filesize
 from rich.progress import Progress, TaskID
 
 
@@ -34,3 +35,14 @@ def get_elapsed_time(progress: Progress, task_id: TaskID) -> timedelta | None:
         else:
             # NOTE: Its str dunder will do the formatting for us :)
             return timedelta(seconds=max(0, round(elapsed)))
+
+
+def get_transfer_speed(progress: Progress, task_id: TaskID) -> str:
+    """Pull the transfer speed of a rich.progress task (exactly like TransferSpeedColumn)"""
+    with progress._lock:
+        task = progress._tasks[task_id]
+        speed = task.finished_speed or task.speed
+        if speed is None:
+            return "?"
+        data_speed = filesize.decimal(int(speed))
+        return f"{data_speed}/s"

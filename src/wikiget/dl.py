@@ -51,7 +51,7 @@ from .exceptions import ParseError
 from .file import File
 from .logging import FileLogAdapter, console
 from .parse import batch_files, batch_size
-from .utils import get_elapsed_time
+from .utils import get_elapsed_time, get_transfer_speed
 from .version import __version__ as WIKIGET_VERSION
 
 logger = logging.getLogger(__name__)
@@ -426,8 +426,11 @@ class Downloader:
                 # Pull the elapsed time for our task out of rich's guts...
                 if (delta := get_elapsed_time(self.progress, task)) is None:
                     delta = "?"
+                speed = get_transfer_speed(self.progress, task)
 
-                self.progress.console.log(f"Downloaded [bold magenta]{file.filename.name}[/] in [bold yellow]{delta}[/]")
+                self.progress.console.log(
+                    f"Downloaded [bold magenta]{file.filename.name}[/] in [bold yellow]{delta}[/] @ [bold red]{speed}[/]"
+                )
         except OSError as e:
             adapter.error("File could not be written: %s", e)
             file.dest.unlink(missing_ok=True)
