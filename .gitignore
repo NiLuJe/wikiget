@@ -1,3 +1,6 @@
+# Local config
+config.toml
+
 # Just cache
 .justcache/
 

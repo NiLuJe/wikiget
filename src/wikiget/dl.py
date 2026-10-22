@@ -71,6 +71,7 @@ class Downloader:
         self.force_redownload = self.cfg.force
         self.concurrency = self.cfg.concurrency
         self.rate_limit = self.cfg.rps
+        self.auth_token = self.cfg.auth_token
         self.dry_run = self.cfg.dry_run
 
         self.console = console
@@ -220,7 +221,12 @@ class Downloader:
         )
 
         # Setup our UA
-        ua = {"user-agent": self.USER_AGENT}
+        headers = {
+            "user-agent": self.USER_AGENT,
+        }
+        # Setup our OAuth2 access token (if any)
+        if self.auth_token is not None:
+            headers["authorization"] = f"Bearer {self.auth_token}"
 
         if self.rate_limit is not None:
             # NOTE: Setup a rate limiter on our end to try to avoid hitting 429...
@@ -231,9 +237,8 @@ class Downloader:
         # NOTE: There's currently only a single A record for upload.wikimedia.org,
         #       so, no need for happy eyeballs.
         # NOTE: We *would* use base_url here, but for the fact that we actually support passing full URLs ;).
-        # FIXME: Reimplement authentification (c.f., mwclient site_login)
         async with (
-            niquests.AsyncSession(multiplexed=False, hooks=limiter, retries=retry, headers=ua) as s,
+            niquests.AsyncSession(multiplexed=False, hooks=limiter, retries=retry, headers=headers) as s,
             asyncio.TaskGroup() as tg,
         ):
             # Ensure the queue is always filled

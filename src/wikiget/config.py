@@ -62,3 +62,5 @@ class Config:
     "Amount of downloads to start in parallel. Check Wikimedia's current policies at https://www.mediawiki.org/wiki/Wikimedia_APIs/Rate_limits before raising this."
     rps: Annotated[PositiveFloat | None, Parameter(group=toggleable)] = 0.98
     "Download rate limit (if any), in requests per second."
+    auth_token: str | None = None
+    "OAuth2 access token (c.f., https://www.mediawiki.org/wiki/OAuth/Owner-only_consumers#OAuth_2)"
