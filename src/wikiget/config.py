@@ -58,8 +58,8 @@ class Config:
     "Treat INPUT as a text file containing one entry per line, in the same format as INPUT would otherwise expect."
     dry_run: Annotated[bool, Parameter(alias="-n", group=flags)] = False
     "Process the input but stop short of actually downloading anything."
-    concurrency: Annotated[PositiveInt, Parameter(alias="-j")] = 3
-    "Amount of downloads to start in parallel. Check Wikimedia's current policies at https://www.mediawiki.org/wiki/Wikimedia_APIs/Rate_limits before raising this."
+    concurrency: Annotated[PositiveInt, Parameter(alias="-j")] = 2
+    "Amount of downloads to start in parallel. Check Wikimedia's current policies at https://www.mediawiki.org/wiki/Wikimedia_APIs/Rate_limits & https://wikitech.wikimedia.org/wiki/Robot_policy before raising this."
     rps: Annotated[PositiveFloat | None, Parameter(group=toggleable)] = 0.98
     "Download rate limit (if any), in requests per second."
     auth_token: str | None = None
