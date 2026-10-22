@@ -12,8 +12,8 @@ set shell := ["bash", "-uc"]
 set script-interpreter := ["bash", "-ue"]
 
 # Project settings
-# We currently prefer Python 3.14
-PYTHON_VERSION := "3.14"
+# We currently prefer Python 3.15
+PYTHON_VERSION := "3.15"
 
 # Show available commands
 list:
@@ -93,12 +93,12 @@ coverage:
 [group('doc')]
 docs-serve:
 	-lsof -ti :8000 | xargs kill
-	uv run --group docs zensical serve
+	uv run --python={{ PYTHON_VERSION }} --group docs zensical serve
 
 # Build docs (strict mode, fails on warnings)
 [group('doc')]
 docs-build:
-	uv run --group docs zensical build --clean
+	uv run --python={{ PYTHON_VERSION }} --group docs zensical build --clean
 
 # Build the project, useful for checking that packaging is correct
 [group('package')]
@@ -110,17 +110,17 @@ build:
 # Setup Python environment
 [group('setup')]
 requirements:
-	uv sync --compile-bytecode
+	uv sync --python={{ PYTHON_VERSION }} --compile-bytecode
 
 # Update Python dependencies
 [group('maintain')]
 update-deps:
-	uv sync -U --compile-bytecode
+	uv sync --python={{ PYTHON_VERSION }} -U --compile-bytecode
 
 # Tag, push, and create a GitHub release
 [group('maintain')]
 release:
-	uv run scripts/release.py
+	uv run --python={{ PYTHON_VERSION }} scripts/release.py
 
 # Remove all build, test, coverage and Python artifacts
 [group('clean')]
