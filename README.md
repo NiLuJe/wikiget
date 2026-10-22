@@ -6,8 +6,7 @@
 [![PyPI version](https://img.shields.io/pypi/v/wikiget)][pypi]
 [![PyPI license](https://img.shields.io/pypi/l/wikiget)][license]
 
-Something like [wget] for downloading a file from MediaWiki sites (like Wikipedia or Wikimedia Commons) using only the
-file name or the URL of its description page.
+Something like [wget] for downloading a file from Wikimedia Commons using only the file name.
 
 ## Installation
 
@@ -19,50 +18,35 @@ uv pip install "git+https://github.com/NiLuJe/wikiget@commons-only"
 
 ## Usage
 
-`wikiget [-h] [-V] [-q | -v] [-f] [-s SITE] [-P PATH] [-u USERNAME] [-p PASSWORD] [-o OUTPUT | -a] [-l LOGFILE] [-j THREADS] FILE`
+`wikiget [-h] [-V] [-q | -v] [-f] [-l LOGFILE] [-j CONCURRENCY] [-b] [-o OUTPUT] [-n] [-r RPS] [-a AUTH] INPUT`
 
-The only required parameter is `FILE`, which is the file you want to download. It can either be the name of the file on
-the wiki, including the namespace prefix, or a link to the file description page. If `FILE` is in the form
-`File:Example.jpg` or `Image:Example.jpg`, it will be fetched from the default site, which is "commons.wikimedia.org".
-If it's the fully-qualified URL of a file description page, like `https://en.wikipedia.org/wiki/File:Example.jpg`, the
-file is fetched from the site in the URL, in this case "en.wikipedia.org". Note: full URLs may contain characters your
-shell interprets differently, so you can either escape those characters with a backslash `\` or surround the entire URL
-with single `'` or double `"` quotes. Use of a fully-qualified URL like this may require setting the `--path` flag (see
-next paragraph).
-
-The site can also be specified with the `--site` flag, though this will not have any effect if the full URL is given.
-Non-Wikimedia sites should work, but you may need to specify the wiki's script path with `--path` (where `index.php` and
-`api.php` live; on Wikimedia sites it's `/w/`, but other sites may use `/` or something else entirely). Private wikis
-(those requiring login even for read access) are also supported with the use of the `--username` and `--password` flags.
+The only required parameter is `FILE`, which is the file you want to download. It should be the name of the file on
+the wiki, including the namespace prefix. For a `FILE` in the form `File:Example.jpg` or `Image:Example.jpg`,
+it will be fetched from "commons.wikimedia.org".
 
 More detailed information, such as the site used and full URL of the file, can be displayed with `-v` or `--verbose`.
-Use `-vv` to display even more detail, mainly debugging information or API messages. `-q` can be used to silence
+Use `-vv` to display even more detail, mainly debugging information. `-q` can be used to silence
 warnings.  A logfile can be specified with `-l` or `--logfile`. If this option is present, the logfile will contain the
-same information as `-v` along with timestamps. New log entries will be appended to an existing logfile.
+same information as `-vv` along with timestamps. New log entries will be appended to an existing logfile.
 
 By default, the program won't overwrite existing files with the same name as the target, but this can be forced with
-`-f` or `--force`. Additionally, the file can be downloaded to a different name with `-o`.
+`-f` or `--force`.
 
-Files can be batch downloaded with the `-a` or `--batch` flag. In this mode, `FILE` will be treated as an input file
+Files can be batch downloaded with the `-b` or `--batch` flag. In this mode, `FILE` will be treated as an input file
 containing multiple files to download, one filename or URL per line. Blank lines and lines starting with "#" are
-ignored. If an error is encountered, execution stops immediately and the offending filename is printed. For large
-batches, the process can be sped up by downloading files in parallel. The number of parallel downloads can be set with
-`-j`. For instance, with `-a -j4`, wikiget will download four files at once. Without `-j` or with `-j` by itself without
-a number, wikiget will download the files one at a time.
+ignored. For large batches, the process can be sped up by downloading files in parallel.
+The number of parallel downloads can be set with `-j`. By default, wikiget will download three files at once,
+to comply with current (as of writing this) Wikimedia rate limits.
+Speaking of rate limits, you can tweak or disable the defaults with `-r` (or `--no-rps`),
+which may be useful for authenticated clients (via an OAuth2 bearer token, passes via `-a`, or, better yet, a local `config.toml`).
+In batch mode, `-o` can be used to point to a *folder* where downloads will be stored
+(if not in batch mode, it can be used to set the path of the output *file*).
 
 ### Example usage
 
 ```bash
 wikiget File:Example.jpg
-wikiget --site en.wikipedia.org File:Example.jpg
-wikiget https://en.wikipedia.org/wiki/File:Example.jpg -o test.jpg
 ```
-
-## Future plans
-
-- optional machine-readable (JSON) log output
-- batch download by (Commons) category or user uploads
-- maybe: download Wikipedia articles, in plain text, wikitext, or other formats
 
 ## Contributing
 
