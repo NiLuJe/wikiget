@@ -40,6 +40,8 @@ to comply with current (as of writing this) Wikimedia rate limits.
 Speaking of rate limits, you can tweak (`-r`) or disable (`--no-rps`) the defaults,
 which may be useful for authenticated clients (via an OAuth2 bearer token,
 passed via `-a`, or, better yet, an `auth_token` key-value pair in a local `config.toml` placed in the CWD).
+Ideally, this should be paired with actual bandwidth throttling, e.g., via `tc`/`tcconfig`, or `trickle`,
+in order to honor WM's current robot policies.
 In batch mode, `-o` can be used to point to a *folder* where downloads will be stored
 (if not in batch mode, it can be used to set the path of the output *file*).
 
