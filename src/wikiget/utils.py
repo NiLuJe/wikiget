@@ -15,6 +15,9 @@
 # You should have received a copy of the GNU General Public License
 # along with Wikiget. If not, see <https://www.gnu.org/licenses/>.
 
+# Lazy load modules only used at runtime (Py 3.15+)
+__lazy_modules__ = ["datetime"]
+
 from datetime import timedelta
 
 from rich.progress import Progress, TaskID

@@ -18,7 +18,7 @@
 """Prepare and process file downloads."""
 
 # Lazy load modules only used at runtime (Py 3.15+)
-__lazy_modules__ = ["collections", "datetime", "functools", "itertools", "signal", "niquests", "rich.progress"]
+__lazy_modules__ = ["collections", "datetime", "functools", "logging", "signal", "niquests", "rich.progress"]
 
 import asyncio
 from asyncio import AbstractEventLoop, Event, Queue, QueueEmpty, QueueFull, QueueShutDown

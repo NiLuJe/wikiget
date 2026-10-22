@@ -18,7 +18,7 @@
 """Parse download targets and batch files."""
 
 # Lazy load modules only used at runtime (Py 3.15+)
-__lazy_modules__ = ["more_itertools"]
+__lazy_modules__ = ["logging", "sys", "more_itertools"]
 
 from collections.abc import Generator
 import logging

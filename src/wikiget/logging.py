@@ -18,7 +18,7 @@
 """Configure program log configuration and adapters."""
 
 # Lazy load modules only used at runtime (Py 3.15+)
-__lazy_modules__ = ["logging.handlers", "queue", "rich.console", "rich.logging"]
+__lazy_modules__ = ["logging", "logging.handlers", "queue", "rich.console", "rich.logging"]
 
 from collections.abc import MutableMapping
 import logging

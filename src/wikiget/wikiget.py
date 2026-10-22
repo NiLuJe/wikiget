@@ -18,7 +18,7 @@
 """Set up the command-line interface and handle program start and exit."""
 
 # Lazy load modules only used at runtime (Py 3.15+)
-__lazy_modules__ = ["asyncio", "os"]
+__lazy_modules__ = ["logging", "os", "wikiget.dl", "wikiget.logging"]
 
 import logging
 import os
