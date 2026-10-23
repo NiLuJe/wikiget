@@ -92,6 +92,8 @@ class Downloader:
             }
         )
         # Mainly to avoid nested array notation inside TextColumns...
+        # NOTE: Also, we need an object as we need this to be passed by reference to rich.progress's add_task,
+        #       to be able to retrive it from inside a Progress instance *and* update it from within one of our coro here.
         self.progress_results = SimpleNamespace(
             {
                 "rps": "?",
@@ -133,6 +135,10 @@ class Downloader:
         self.status["successes"] += 1
 
     # Helper methods to operate on the self.progress_status Counter
+    def elapsed_time(self) -> timedelta:
+        self.now = self.loop.time()
+        return timedelta(seconds=self.now - self.start_time)
+
     def requests(self) -> int:
         return self.progress_status["requests"]
 
@@ -184,9 +190,9 @@ class Downloader:
             # Over 10s windows, like WM recommends
             await asyncio.sleep(10)
 
-            self.now = self.loop.time()
+            delta = self.elapsed_time()
 
-            self.progress_results.rps = f"{self.requests() / (self.now - self.start_time):.2f} r/s"
+            self.progress_results.rps = f"{self.requests() / delta.total_seconds():.2f} r/s"
 
     async def download(self) -> int:
         with (
@@ -206,8 +212,7 @@ class Downloader:
             )
         successes = self.successes()
         if successes:
-            end_time = self.loop.time()
-            delta = timedelta(seconds=round(end_time - self.start_time))
+            delta = self.elapsed_time()
 
             # We don't see INFO on console w/o verbose output...
             logger.info("Downloaded %d items in %s (%.2f rps)", successes, delta, self.requests() / delta.total_seconds())

@@ -34,7 +34,7 @@ def get_elapsed_time(progress: Progress, task_id: TaskID) -> timedelta | None:
             return None
         else:
             # NOTE: Its str dunder will do the formatting for us :)
-            return timedelta(seconds=max(0, round(elapsed)))
+            return timedelta(seconds=max(0, elapsed))
 
 
 def get_transfer_speed(progress: Progress, task_id: TaskID) -> str:
