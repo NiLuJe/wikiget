@@ -184,6 +184,7 @@ class Downloader:
             TextColumn("[red][progress.description]{task.fields[status].speed}"),
             "•",
             TimeRemainingColumn(elapsed_when_finished=False),
+            "•",
             TimeElapsedColumn(),
             console=self.console,
         )
