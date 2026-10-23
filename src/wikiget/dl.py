@@ -28,6 +28,7 @@ from functools import partial
 import logging
 from pathlib import Path
 import signal
+from types import SimpleNamespace
 from typing import Any, ClassVar
 
 from cyclopts.types import StdioPath
@@ -83,6 +84,20 @@ class Downloader:
                 "successes": 0,
             }
         )
+        self.progress_status = Counter(
+            {
+                "requests": 0,
+                "rolling_bytes": 0,
+                "total_bytes": 0,
+            }
+        )
+        # Mainly to avoid nested array notation inside TextColumns...
+        self.progress_results = SimpleNamespace(
+            {
+                "rps": "?",
+                "speed": "?",
+            }
+        )
 
         self.q = Queue(maxsize=self.concurrency)
         self.done_q = Queue(maxsize=self.concurrency)
@@ -93,11 +108,12 @@ class Downloader:
         self.loop.add_signal_handler(signal.SIGINT, partial(self.handle_sigint, self.loop))
 
         logger.debug("User agent: %s", self.USER_AGENT)
-        # NOTE: Fun fact: when self.rate_limit is None, logger just skips the message entirely :)
-        logger.debug("Rate limit: %.2f rps", self.rate_limit)
+        if self.rate_limit is not None:
+            logger.debug("Rate limit: %.2f rps", self.rate_limit)
 
         self.start_time = self.loop.time()
 
+    # Helper methods to operate on the self.status Counter
     def errors(self) -> int:
         return self.status["errors"]
 
@@ -116,6 +132,13 @@ class Downloader:
     def increment_successes(self) -> None:
         self.status["successes"] += 1
 
+    # Helper methods to operate on the self.progress_status Counter
+    def requests(self) -> int:
+        return self.progress_status["requests"]
+
+    def increment_requests(self) -> None:
+        self.progress_status["requests"] += 1
+
     def handle_sigint(self, loop: AbstractEventLoop) -> Any:
         self.done_event.set()
         self.console.log("Caught a [bold red]SIGINT[/], winding down...")
@@ -131,6 +154,8 @@ class Downloader:
             TextColumn("[bold white][progress.description]{task.description}"),
             BarColumn(bar_width=None),
             TaskProgressColumn(),
+            "•",
+            TextColumn("[bold blue][progress.description]{task.fields[status].rps}"),
             "•",
             TimeRemainingColumn(elapsed_when_finished=False),
             TimeElapsedColumn(),
@@ -154,6 +179,15 @@ class Downloader:
             console=self.console,
         )
 
+    async def compute_overall_status(self) -> None:
+        while True:
+            # Over 10s windows, like WM recommends
+            await asyncio.sleep(10)
+
+            self.now = self.loop.time()
+
+            self.progress_results.rps = f"{self.requests() / (self.now - self.start_time):.2f} r/s"
+
     async def download(self) -> int:
         with (
             self.overall_progress_bar() as self.overall_progress,
@@ -176,7 +210,7 @@ class Downloader:
             delta = timedelta(seconds=round(end_time - self.start_time))
 
             # We don't see INFO on console w/o verbose output...
-            logger.info("Downloaded %d items in %s (%.2f rps)", successes, delta, successes / delta.total_seconds())
+            logger.info("Downloaded %d items in %s (%.2f rps)", successes, delta, self.requests() / delta.total_seconds())
             if self.cfg.verbose == 0:
                 console.log(f"Downloaded {successes} items in {delta}")
 
@@ -205,7 +239,7 @@ class Downloader:
             return
 
         # Start tracking the overall progress
-        self.overall_task = self.overall_progress.add_task("Download...", total=item_count)
+        self.overall_task = self.overall_progress.add_task("Download...", total=item_count, status=self.progress_results)
 
         # Setup auto-retry, as we're very likely to hit 429 on the way...
         # c.f., https://www.mediawiki.org/wiki/Wikimedia_APIs/Rate_limits
@@ -241,6 +275,9 @@ class Downloader:
             niquests.AsyncSession(multiplexed=False, hooks=limiter, retries=retry, headers=headers) as s,
             asyncio.TaskGroup() as tg,
         ):
+            # Compute overall speed statistics every 10s
+            status = tg.create_task(self.compute_overall_status(), name="Progress")
+
             # Ensure the queue is always filled
             # NOTE: Started early so we don't shutdown the queue before it has a chance to fill
             tg.create_task(self.fill_download_queue(), eager_start=True, name="QFill")  # push
@@ -265,6 +302,8 @@ class Downloader:
             #       we'll *always* leave at most a queue's worth of progress bars visible.
             #       This is also why we don't join that queue: it *never* actually goes empty.
             self.done_q.shutdown()
+            # Also cancel the status updates
+            status.cancel()
 
         # If you *really* want to clear leftover complete bars on exit...
         # self.progress_cleanup()
@@ -365,6 +404,9 @@ class Downloader:
 
     async def process_response(self, r: niquests.AsyncResponse, file: File, task: TaskID) -> None:
         """Fetch file information and contents if the file exists and save it to disk."""
+
+        # That's a new request, successful or not!
+        self.increment_requests()
 
         # prepend the current filename to all log messages
         adapter = FileLogAdapter(logger, {"filename": file.filename.name})
