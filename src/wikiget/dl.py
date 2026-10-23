@@ -18,7 +18,7 @@
 """Prepare and process file downloads."""
 
 # Lazy load modules only used at runtime (Py 3.15+)
-__lazy_modules__ = ["collections", "datetime", "functools", "logging", "signal", "niquests", "rich.progress"]
+__lazy_modules__ = ["collections", "datetime", "functools", "logging", "signal", "niquests", "rich", "rich.progress"]
 
 import asyncio
 from asyncio import AbstractEventLoop, Event, Queue, QueueEmpty, QueueFull, QueueShutDown
@@ -34,6 +34,7 @@ from typing import Any, ClassVar
 from cyclopts.types import StdioPath
 import niquests
 from niquests import __version__ as NIQUESTS_VERSION
+from rich import filesize
 from rich.progress import (
     BarColumn,
     DownloadColumn,
@@ -145,6 +146,21 @@ class Downloader:
     def increment_requests(self) -> None:
         self.progress_status["requests"] += 1
 
+    def incremement_rolling_bytes(self, increment: int) -> None:
+        self.progress_status["rolling_bytes"] += increment
+
+    def rolling_bytes(self) -> int:
+        return self.progress_status["rolling_bytes"]
+
+    def reset_rolling_bytes(self) -> None:
+        self.progress_status["rolling_bytes"] = 0
+
+    def increment_total_bytes(self, increment: int) -> None:
+        self.progress_status["total_bytes"] += increment
+
+    def total_bytes(self) -> int:
+        return self.progress_status["total_bytes"]
+
     def handle_sigint(self, loop: AbstractEventLoop) -> Any:
         self.done_event.set()
         self.console.log("Caught a [bold red]SIGINT[/], winding down...")
@@ -161,7 +177,9 @@ class Downloader:
             BarColumn(bar_width=None),
             TaskProgressColumn(),
             "•",
-            TextColumn("[bold blue][progress.description]{task.fields[status].rps}"),
+            TextColumn("[blue][progress.description]{task.fields[status].rps}"),
+            "•",
+            TextColumn("[red][progress.description]{task.fields[status].speed}"),
             "•",
             TimeRemainingColumn(elapsed_when_finished=False),
             TimeElapsedColumn(),
@@ -192,7 +210,17 @@ class Downloader:
 
             delta = self.elapsed_time()
 
+            # Requests per second
             self.progress_results.rps = f"{self.requests() / delta.total_seconds():.2f} r/s"
+
+            # Transfer speed
+            delta_bytes = self.rolling_bytes()
+            self.increment_total_bytes(delta_bytes)
+            self.reset_rolling_bytes()
+
+            speed = delta_bytes / delta.total_seconds()
+            data_speed = filesize.decimal(int(speed))
+            self.progress_results.speed = f"{data_speed}/s"
 
     async def download(self) -> int:
         with (
@@ -214,8 +242,13 @@ class Downloader:
         if successes:
             delta = self.elapsed_time()
 
+            rps = self.requests() / delta.total_seconds()
+
+            speed = self.total_bytes() / delta.total_seconds()
+            data_speed = filesize.decimal(int(speed))
+
             # We don't see INFO on console w/o verbose output...
-            logger.info("Downloaded %d items in %s (%.2f rps)", successes, delta, self.requests() / delta.total_seconds())
+            logger.info("Downloaded %d items in %s (%.2f r/s) @ %s/s", successes, delta, rps, data_speed)
             if self.cfg.verbose == 0:
                 console.log(f"Downloaded {successes} items in {delta}")
 
@@ -463,12 +496,19 @@ class Downloader:
             file.dest.parent.mkdir(parents=True, exist_ok=True)
 
             with file.dest.open("wb") as fd:
+                transferred_bytes = 0
                 async for chunk in await r.iter_content():
                     fd.write(chunk)
-                    if r.download_progress:
+                    if r.download_progress is not None:
                         self.progress.update(task, completed=r.download_progress.total)
+                        # We need a delta for the overall counter...
+                        chunk_bytes = r.download_progress.total - transferred_bytes
+                        transferred_bytes = r.download_progress.total
                     else:
-                        self.progress.update(task, advance=len(chunk))
+                        chunk_bytes = len(chunk)
+                        self.progress.update(task, advance=chunk_bytes)
+                    # Update the overall counter
+                    self.incremement_rolling_bytes(chunk_bytes)
 
                 # Pull the elapsed time for our task out of rich's guts...
                 if (delta := get_elapsed_time(self.progress, task)) is None:
