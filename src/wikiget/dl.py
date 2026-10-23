@@ -116,6 +116,8 @@ class Downloader:
             logger.debug("Rate limit: %.2f rps", self.rate_limit)
 
         self.start_time = self.loop.time()
+        self.previous_time = self.start_time
+        self.current_window = timedelta(seconds=self.start_time)
         self.elapsed_time = timedelta(seconds=0)
 
     # Helper methods to operate on the self.status Counter
@@ -140,7 +142,9 @@ class Downloader:
     # Helper methods to operate on the self.progress_status Counter
     def update_elapsed_time(self) -> None:
         self.now = self.loop.time()
+        self.current_window = timedelta(seconds=self.now - self.previous_time)
         self.elapsed_time = timedelta(seconds=self.now - self.start_time)
+        self.previous_time = self.now
 
     def requests(self) -> int:
         return self.progress_status["requests"]
@@ -210,14 +214,14 @@ class Downloader:
         self.update_elapsed_time()
 
         # Requests per second
-        self.progress_results.rps = f"{self.requests() / self.elapsed_time.total_seconds():.2f} r/s"
+        self.progress_results.rps = f"{self.requests() / self.current_window.total_seconds():.2f} r/s"
 
         # Transfer speed
         delta_bytes = self.rolling_bytes()
         self.increment_total_bytes(delta_bytes)
         self.reset_rolling_bytes()
 
-        speed = delta_bytes / self.elapsed_time.total_seconds()
+        speed = delta_bytes / self.current_window.total_seconds()
         data_speed = filesize.decimal(int(speed))
         self.progress_results.speed = f"{data_speed}/s"
 
@@ -252,17 +256,25 @@ class Downloader:
             )
         successes = self.successes()
         if successes:
+            # Requests per second
+            total_rps = self.requests() / self.elapsed_time.total_seconds()
+
+            # Transfer speed
+            total_bytes = self.total_bytes()
+            total_speed = total_bytes / self.elapsed_time.total_seconds()
+            total_transfer_speed = filesize.decimal(int(total_speed))
+
             # We don't see INFO on console w/o verbose output...
             logger.info(
-                "Downloaded %d items in %s (%s) @ %s",
+                "Downloaded %d items in %s (%.2f r/s) @ %s/s",
                 successes,
                 self.elapsed_time,
-                self.progress_results.rps,
-                self.progress_results.speed,
+                total_rps,
+                total_transfer_speed,
             )
             if self.cfg.verbose == 0:
                 console.log(
-                    f"Downloaded {successes} items in {self.elapsed_time} ({self.progress_results.rps}) @ {self.progress_results.speed}"
+                    f"Downloaded {successes} items in {self.elapsed_time} ({total_rps:.2f} r/s) @ {total_transfer_speed}/s"
                 )
 
         # Return a non-zero exit code if any meaningful problems were encountered,
