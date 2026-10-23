@@ -18,6 +18,7 @@
 """Prepare and process file downloads."""
 
 # Lazy load modules only used at runtime (Py 3.15+)
+
 __lazy_modules__ = ["collections", "datetime", "functools", "logging", "signal", "niquests", "rich", "rich.progress"]
 
 import asyncio
@@ -115,6 +116,7 @@ class Downloader:
             logger.debug("Rate limit: %.2f rps", self.rate_limit)
 
         self.start_time = self.loop.time()
+        self.elapsed_time = timedelta(seconds=0)
 
     # Helper methods to operate on the self.status Counter
     def errors(self) -> int:
@@ -136,9 +138,9 @@ class Downloader:
         self.status["successes"] += 1
 
     # Helper methods to operate on the self.progress_status Counter
-    def elapsed_time(self) -> timedelta:
+    def update_elapsed_time(self) -> None:
         self.now = self.loop.time()
-        return timedelta(seconds=self.now - self.start_time)
+        self.elapsed_time = timedelta(seconds=self.now - self.start_time)
 
     def requests(self) -> int:
         return self.progress_status["requests"]
@@ -203,24 +205,33 @@ class Downloader:
             console=self.console,
         )
 
+    def update_progress_results(self) -> None:
+        self.update_elapsed_time()
+
+        # Requests per second
+        self.progress_results.rps = f"{self.requests() / self.elapsed_time.total_seconds():.2f} r/s"
+
+        # Transfer speed
+        delta_bytes = self.rolling_bytes()
+        self.increment_total_bytes(delta_bytes)
+        self.reset_rolling_bytes()
+
+        speed = delta_bytes / self.elapsed_time.total_seconds()
+        data_speed = filesize.decimal(int(speed))
+        self.progress_results.speed = f"{data_speed}/s"
+
     async def compute_overall_status(self) -> None:
-        while True:
-            # Over 10s windows, like WM recommends
-            await asyncio.sleep(10)
+        try:
+            while True:
+                # Over 10s windows, like WM recommends
+                await asyncio.sleep(10)
 
-            delta = self.elapsed_time()
-
-            # Requests per second
-            self.progress_results.rps = f"{self.requests() / delta.total_seconds():.2f} r/s"
-
-            # Transfer speed
-            delta_bytes = self.rolling_bytes()
-            self.increment_total_bytes(delta_bytes)
-            self.reset_rolling_bytes()
-
-            speed = delta_bytes / delta.total_seconds()
-            data_speed = filesize.decimal(int(speed))
-            self.progress_results.speed = f"{data_speed}/s"
+                self.update_progress_results()
+        except asyncio.CancelledError:
+            raise
+        finally:
+            # We want a final update on task cancellation (i.e., on exit)...
+            self.update_progress_results()
 
     async def download(self) -> int:
         with (
@@ -240,17 +251,18 @@ class Downloader:
             )
         successes = self.successes()
         if successes:
-            delta = self.elapsed_time()
-
-            rps = self.requests() / delta.total_seconds()
-
-            speed = self.total_bytes() / delta.total_seconds()
-            data_speed = filesize.decimal(int(speed))
-
             # We don't see INFO on console w/o verbose output...
-            logger.info("Downloaded %d items in %s (%.2f r/s) @ %s/s", successes, delta, rps, data_speed)
+            logger.info(
+                "Downloaded %d items in %s (%s) @ %s",
+                successes,
+                self.elapsed_time,
+                self.progress_results.rps,
+                self.progress_results.speed,
+            )
             if self.cfg.verbose == 0:
-                console.log(f"Downloaded {successes} items in {delta}")
+                console.log(
+                    f"Downloaded {successes} items in {self.elapsed_time} ({self.progress_results.rps}) @ {self.progress_results.speed}"
+                )
 
         # Return a non-zero exit code if any meaningful problems were encountered,
         # even if some downloads completed successfully
