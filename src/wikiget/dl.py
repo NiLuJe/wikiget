@@ -89,6 +89,7 @@ class Downloader:
         self.progress_status = Counter(
             {
                 "requests": 0,
+                "total_requests": 0,
                 "rolling_bytes": 0,
                 "total_bytes": 0,
             }
@@ -149,8 +150,17 @@ class Downloader:
     def requests(self) -> int:
         return self.progress_status["requests"]
 
+    def reset_requests(self) -> None:
+        self.progress_status["requests"] = 0
+
     def increment_requests(self) -> None:
         self.progress_status["requests"] += 1
+
+    def increment_total_requests(self, increment: int) -> None:
+        self.progress_status["total_requests"] += increment
+
+    def total_requests(self) -> int:
+        return self.progress_status["total_requests"]
 
     def incremement_rolling_bytes(self, increment: int) -> None:
         self.progress_status["rolling_bytes"] += increment
@@ -214,14 +224,17 @@ class Downloader:
         self.update_elapsed_time()
 
         # Requests per second
-        self.progress_results.rps = f"{self.requests() / self.current_window.total_seconds():.2f} r/s"
+        window_bytes = self.requests()
+        self.progress_results.rps = f"{window_bytes / self.current_window.total_seconds():.2f} r/s"
+        self.increment_total_requests(window_bytes)
+        self.reset_requests()
 
         # Transfer speed
-        delta_bytes = self.rolling_bytes()
-        self.increment_total_bytes(delta_bytes)
+        window_bytes = self.rolling_bytes()
+        self.increment_total_bytes(window_bytes)
         self.reset_rolling_bytes()
 
-        speed = delta_bytes / self.current_window.total_seconds()
+        speed = window_bytes / self.current_window.total_seconds()
         data_speed = filesize.decimal(int(speed))
         self.progress_results.speed = f"{data_speed}/s"
 
@@ -257,7 +270,7 @@ class Downloader:
         successes = self.successes()
         if successes:
             # Requests per second
-            total_rps = self.requests() / self.elapsed_time.total_seconds()
+            total_rps = self.total_requests() / self.elapsed_time.total_seconds()
 
             # Transfer speed
             total_bytes = self.total_bytes()
