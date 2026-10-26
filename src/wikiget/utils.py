@@ -24,23 +24,6 @@ from rich import filesize
 from rich.progress import Progress, TaskID
 
 
-# Descriptor to make dealing with Counters more natural.
-# Among other things, we use this as a very roundabout way to access ints by reference by storing them in a Counter,
-# while sort of hiding the fact that they're in a Counter and allowing direct interaction to individual keys as if they were dedicated instance attributes...
-class IntCounter:
-    def __init__(self, counter_name: str) -> None:
-        self.attr_name = counter_name
-
-    def __set_name__(self, owner: object, name: str) -> None:
-        self.key_name = name
-
-    def __get__(self, obj: object, objtype=None) -> int:
-        return getattr(obj, self.attr_name).get(self.key_name)
-
-    def __set__(self, obj: object, value: int) -> None:
-        getattr(obj, self.attr_name)[self.key_name] = value
-
-
 # Because https://github.com/Textualize/rich/pull/2345 never landed ;'(
 def get_elapsed_time(progress: Progress, task_id: TaskID) -> timedelta | None:
     """Pull the finished or elapsed time of a rich.progress task (exactly like TimeElapsedColumn)"""

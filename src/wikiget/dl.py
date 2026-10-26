@@ -23,7 +23,6 @@ __lazy_modules__ = ["collections", "datetime", "functools", "logging", "signal",
 
 import asyncio
 from asyncio import AbstractEventLoop, Event, Queue, QueueEmpty, QueueFull, QueueShutDown
-from collections import Counter
 from datetime import timedelta
 from functools import partial
 import logging
@@ -54,7 +53,7 @@ from .exceptions import ParseError
 from .file import File
 from .logging import FileLogAdapter, console
 from .parse import batch_files, batch_size
-from .utils import IntCounter, get_elapsed_time, get_transfer_speed
+from .utils import get_elapsed_time, get_transfer_speed
 from .version import __version__ as WIKIGET_VERSION
 
 logger = logging.getLogger(__name__)
@@ -64,15 +63,6 @@ class Downloader:
     USER_AGENT: ClassVar[str] = (
         f"wikiget/{WIKIGET_VERSION} (https://github.com/NiLuJe/wikiget) niquests/{NIQUESTS_VERSION}"
     )
-
-    # Fancy descriptors to allow direct access to our various Counter members...
-    errors = IntCounter("status")
-    warnings = IntCounter("status")
-    successes = IntCounter("status")
-    window_requests = IntCounter("progress_status")
-    total_requests = IntCounter("progress_status")
-    window_bytes = IntCounter("progress_status")
-    total_bytes = IntCounter("progress_status")
 
     def __init__(self, input: StdioPath, output: Path | None, cfg: Config) -> None:
         """Instantiate a downloader instance, following the CLI args."""
@@ -88,22 +78,15 @@ class Downloader:
 
         self.console = console
 
-        # NOTE: The insane indirection through a Counter + IntCounter descriptor is for when we basically need ints passed by reference...
-        self.status = Counter(
-            {
-                "errors": 0,
-                "warnings": 0,
-                "successes": 0,
-            }
-        )
-        self.progress_status = Counter(
-            {
-                "window_requests": 0,
-                "total_requests": 0,
-                "window_bytes": 0,
-                "total_bytes": 0,
-            }
-        )
+        self.errors = 0
+        self.warnings = 0
+        self.successes = 0
+
+        self.window_requests = 0
+        self.total_requests = 0
+        self.window_bytes = 0
+        self.total_bytes = 0
+
         # Mainly to avoid double array notation inside TextColumns...
         # NOTE: Also, we need an object as we need this to be passed by reference to rich.progress's add_task,
         #       to be able to retrive it from inside a Progress instance *and* update it from within one of our coro here.
@@ -131,7 +114,6 @@ class Downloader:
         self.current_window = timedelta(seconds=self.start_time)
         self.elapsed_time = timedelta(seconds=0)
 
-    # Helper methods to operate on the self.progress_status Counter
     def update_elapsed_time(self) -> None:
         self.now = self.loop.time()
         self.current_window = timedelta(seconds=self.now - self.previous_time)
