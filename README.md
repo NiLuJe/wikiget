@@ -41,7 +41,8 @@ Speaking of rate limits, you can tweak (`-r`) or disable (`--no-rps`) the defaul
 which may be useful for authenticated clients (via an OAuth2 bearer token,
 passed via `-a`, or, better yet, an `auth_token` key-value pair in a local `config.toml` placed in the CWD).
 Ideally, this should be paired with actual bandwidth throttling, e.g., via `tc`/`tcconfig`, or `trickle`,
-in order to honor WM's current robot policies. Barring that, a `-r` value between 2 and 4
+in order to honor WM's current robot policies. Barring that, monitor the transfer speed displayed by the overall progress bar,
+and play with lower `-r` values.
 should be used by authenticated clients.
 In batch mode, `-o` can be used to point to a *folder* where downloads will be stored
 (if not in batch mode, it can be used to set the path of the output *file*).
