@@ -83,9 +83,12 @@ class Downloader:
         self.successes = 0
 
         self.window_requests = 0
+        self.binned_requests = []
         self.total_requests = 0
         self.window_bytes = 0
+        self.binned_bytes = []
         self.total_bytes = 0
+        self.binned_windows = []
 
         # Mainly to avoid double array notation inside TextColumns...
         # NOTE: Also, we need an object as we need this to be passed by reference to rich.progress's add_task,
@@ -163,17 +166,31 @@ class Downloader:
             console=self.console,
         )
 
-    def update_progress_results(self) -> None:
+    def update_progress_results(self, step: int) -> None:
         self.update_elapsed_time()
 
+        # We want to refresh every second, but over the last 10s of data.
+        # We get called every second, so, store each slice of data in a dedicated bin.
+        # Our caller ensures step will naturally rollover, so it'll always point at the right bin,
+        # so summing the bins will always contain the last 10 windows, i.e.,
+        # the last 10s of data (+/- scheduling noise).
+        self.binned_windows[step] = self.current_window.total_seconds()
+        self.binned_requests[step] = self.window_requests
+        self.binned_bytes[step] = self.window_bytes
+
+        # Compute the actual slice of data we operate on
+        seconds = sum(self.binned_windows)
+        requests = sum(self.binned_requests)
+        bytes = sum(self.binned_bytes)
+
         # Requests per second
-        self.progress_results.rps = f"{self.window_requests / self.current_window.total_seconds():.2f} r/s"
+        self.progress_results.rps = f"{requests / seconds:.2f} r/s"
 
         self.total_requests += self.window_requests
         self.window_requests = 0
 
         # Transfer speed
-        speed = self.window_bytes / self.current_window.total_seconds()
+        speed = bytes / seconds
         data_speed = filesize.decimal(int(speed))
         self.progress_results.speed = f"{data_speed}/s"
 
@@ -181,17 +198,23 @@ class Downloader:
         self.window_bytes = 0
 
     async def compute_overall_status(self) -> None:
+        step = 0
         try:
             while True:
-                # Over 10s windows, like WM recommends
-                await asyncio.sleep(10)
+                # Refresh every second...
+                await asyncio.sleep(1)
 
-                self.update_progress_results()
+                self.update_progress_results(step)
+                # ...but over a 10s window of data, like WM recommends
+                step += 1
+                step %= 10
         except asyncio.CancelledError:
             raise
         finally:
             # We want a final update on task cancellation (i.e., on exit)...
-            self.update_progress_results()
+            step += 1
+            step %= 10
+            self.update_progress_results(step)
 
     async def download(self) -> int:
         with (
