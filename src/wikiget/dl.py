@@ -54,7 +54,7 @@ from .exceptions import ParseError
 from .file import File
 from .logging import FileLogAdapter, console
 from .parse import batch_files, batch_size
-from .utils import get_elapsed_time, get_transfer_speed
+from .utils import IntCounter, get_elapsed_time, get_transfer_speed
 from .version import __version__ as WIKIGET_VERSION
 
 logger = logging.getLogger(__name__)
@@ -64,6 +64,15 @@ class Downloader:
     USER_AGENT: ClassVar[str] = (
         f"wikiget/{WIKIGET_VERSION} (https://github.com/NiLuJe/wikiget) niquests/{NIQUESTS_VERSION}"
     )
+
+    # Fancy descriptors to allow direct access to our various Counter members...
+    errors = IntCounter("status")
+    warnings = IntCounter("status")
+    successes = IntCounter("status")
+    window_requests = IntCounter("progress_status")
+    total_requests = IntCounter("progress_status")
+    window_bytes = IntCounter("progress_status")
+    total_bytes = IntCounter("progress_status")
 
     def __init__(self, input: StdioPath, output: Path | None, cfg: Config) -> None:
         """Instantiate a downloader instance, following the CLI args."""
@@ -79,6 +88,7 @@ class Downloader:
 
         self.console = console
 
+        # NOTE: The insane indirection through a Counter + IntCounter descriptor is for when we basically need ints passed by reference...
         self.status = Counter(
             {
                 "errors": 0,
@@ -88,13 +98,13 @@ class Downloader:
         )
         self.progress_status = Counter(
             {
-                "requests": 0,
+                "window_requests": 0,
                 "total_requests": 0,
-                "rolling_bytes": 0,
+                "window_bytes": 0,
                 "total_bytes": 0,
             }
         )
-        # Mainly to avoid nested array notation inside TextColumns...
+        # Mainly to avoid double array notation inside TextColumns...
         # NOTE: Also, we need an object as we need this to be passed by reference to rich.progress's add_task,
         #       to be able to retrive it from inside a Progress instance *and* update it from within one of our coro here.
         self.progress_results = SimpleNamespace(
@@ -121,61 +131,12 @@ class Downloader:
         self.current_window = timedelta(seconds=self.start_time)
         self.elapsed_time = timedelta(seconds=0)
 
-    # Helper methods to operate on the self.status Counter
-    def errors(self) -> int:
-        return self.status["errors"]
-
-    def increment_errors(self) -> None:
-        self.status["errors"] += 1
-
-    def warnings(self) -> int:
-        return self.status["warnings"]
-
-    def increment_warnings(self) -> None:
-        self.status["warnings"] += 1
-
-    def successes(self) -> int:
-        return self.status["successes"]
-
-    def increment_successes(self) -> None:
-        self.status["successes"] += 1
-
     # Helper methods to operate on the self.progress_status Counter
     def update_elapsed_time(self) -> None:
         self.now = self.loop.time()
         self.current_window = timedelta(seconds=self.now - self.previous_time)
         self.elapsed_time = timedelta(seconds=self.now - self.start_time)
         self.previous_time = self.now
-
-    def requests(self) -> int:
-        return self.progress_status["requests"]
-
-    def reset_requests(self) -> None:
-        self.progress_status["requests"] = 0
-
-    def increment_requests(self) -> None:
-        self.progress_status["requests"] += 1
-
-    def increment_total_requests(self, increment: int) -> None:
-        self.progress_status["total_requests"] += increment
-
-    def total_requests(self) -> int:
-        return self.progress_status["total_requests"]
-
-    def incremement_rolling_bytes(self, increment: int) -> None:
-        self.progress_status["rolling_bytes"] += increment
-
-    def rolling_bytes(self) -> int:
-        return self.progress_status["rolling_bytes"]
-
-    def reset_rolling_bytes(self) -> None:
-        self.progress_status["rolling_bytes"] = 0
-
-    def increment_total_bytes(self, increment: int) -> None:
-        self.progress_status["total_bytes"] += increment
-
-    def total_bytes(self) -> int:
-        return self.progress_status["total_bytes"]
 
     def handle_sigint(self, loop: AbstractEventLoop) -> Any:
         self.done_event.set()
@@ -224,19 +185,18 @@ class Downloader:
         self.update_elapsed_time()
 
         # Requests per second
-        window_bytes = self.requests()
-        self.progress_results.rps = f"{window_bytes / self.current_window.total_seconds():.2f} r/s"
-        self.increment_total_requests(window_bytes)
-        self.reset_requests()
+        self.progress_results.rps = f"{self.window_requests / self.current_window.total_seconds():.2f} r/s"
+
+        self.total_requests += self.window_requests
+        self.window_requests = 0
 
         # Transfer speed
-        window_bytes = self.rolling_bytes()
-        self.increment_total_bytes(window_bytes)
-        self.reset_rolling_bytes()
-
-        speed = window_bytes / self.current_window.total_seconds()
+        speed = self.window_bytes / self.current_window.total_seconds()
         data_speed = filesize.decimal(int(speed))
         self.progress_results.speed = f"{data_speed}/s"
+
+        self.total_bytes += self.window_bytes
+        self.window_bytes = 0
 
     async def compute_overall_status(self) -> None:
         try:
@@ -258,41 +218,38 @@ class Downloader:
         ):
             await self.download_loop()
 
-        errors, warnings = self.errors(), self.warnings()
-        if errors or warnings:
+        if self.errors or self.warnings:
             logger.warning(
                 "%d error%s and %d warning%s encountered during processing",
-                errors,
-                "s"[: errors ^ 1],
-                warnings,
-                "s"[: warnings ^ 1],
+                self.errors,
+                "s"[: self.errors ^ 1],
+                self.warnings,
+                "s"[: self.warnings ^ 1],
             )
-        successes = self.successes()
-        if successes:
+        if self.successes:
             # Requests per second
-            total_rps = self.total_requests() / self.elapsed_time.total_seconds()
+            total_rps = self.total_requests / self.elapsed_time.total_seconds()
 
             # Transfer speed
-            total_bytes = self.total_bytes()
-            total_speed = total_bytes / self.elapsed_time.total_seconds()
+            total_speed = self.total_bytes / self.elapsed_time.total_seconds()
             total_transfer_speed = filesize.decimal(int(total_speed))
 
             # We don't see INFO on console w/o verbose output...
             logger.info(
                 "Downloaded %d items in %s (%.2f r/s) @ %s/s",
-                successes,
+                self.successes,
                 self.elapsed_time,
                 total_rps,
                 total_transfer_speed,
             )
             if self.cfg.verbose == 0:
                 console.log(
-                    f"Downloaded {successes} items in {self.elapsed_time} ({total_rps:.2f} r/s) @ {total_transfer_speed}/s"
+                    f"Downloaded {self.successes} items in {self.elapsed_time} ({total_rps:.2f} r/s) @ {total_transfer_speed}/s"
                 )
 
         # Return a non-zero exit code if any meaningful problems were encountered,
         # even if some downloads completed successfully
-        return 1 if errors else 0
+        return 1 if self.errors else 0
 
     async def download_loop(self) -> None:
         """Process the download target given in the CLI args as a single file or batch file.
@@ -426,10 +383,10 @@ class Downloader:
             return self.parse_input(line)
         except ParseError as e:
             logger.error("%s (@ line %i)", str(e), line_num)
-            self.increment_errors()
+            self.errors += 1
         except FileExistsError as e:
             logger.warning(e)
-            self.increment_warnings()
+            self.warnings += 1
 
         return None
 
@@ -482,7 +439,7 @@ class Downloader:
         """Fetch file information and contents if the file exists and save it to disk."""
 
         # That's a new request, successful or not!
-        self.increment_requests()
+        self.window_requests += 1
 
         # prepend the current filename to all log messages
         adapter = FileLogAdapter(logger, {"filename": file.filename.name})
@@ -496,7 +453,7 @@ class Downloader:
             r.raise_for_status()
         except niquests.HTTPError as e:
             adapter.error("File could not be downloaded: %s", e)
-            self.increment_errors()
+            self.errors += 1
             self.progress.console.log(
                 f"[bold red]FAILED[/] to download [bold magenta]{file.filename.name}[/] ([bold yellow]{r.status_code}[/])"
             )
@@ -546,7 +503,7 @@ class Downloader:
                         chunk_bytes = len(chunk)
                         self.progress.update(task, advance=chunk_bytes)
                     # Update the overall counter
-                    self.incremement_rolling_bytes(chunk_bytes)
+                    self.window_bytes += chunk_bytes
 
                 # Pull the elapsed time for our task out of rich's guts...
                 if (delta := get_elapsed_time(self.progress, task)) is None:
@@ -559,7 +516,7 @@ class Downloader:
         except OSError as e:
             adapter.error("File could not be written: %s", e)
             file.dest.unlink(missing_ok=True)
-            self.increment_errors()
+            self.errors += 1
             self.progress.console.log(
                 f"[bold red]FAILED[/] to write local file for [bold magenta]{file.filename.name}[/]"
             )
@@ -567,7 +524,7 @@ class Downloader:
 
         if remote_hash is None:
             # No usable checksum, abort early
-            self.increment_successes()
+            self.successes += 1
             return
 
         # If possible, verify file integrity and log the details
@@ -576,7 +533,7 @@ class Downloader:
         except OSError as e:
             adapter.error("File downloaded but could not be verified: %s", e)
             file.dest.unlink()
-            self.increment_errors()
+            self.errors += 1
             self.progress.console.log(f"[bold red]FAILED[/] to verify downloaded [bold magenta]{file.filename.name}[/]")
             return
 
@@ -589,8 +546,8 @@ class Downloader:
         else:
             adapter.error("Hash mismatch! Downloaded file may be corrupt.")
             file.dest.unlink()
-            self.increment_errors()
+            self.errors += 1
             self.progress.console.log(f"[bold red]CORRUPT[/] download for [bold magenta]{file.filename.name}[/]")
 
-        self.increment_successes()
+        self.successes += 1
         return
