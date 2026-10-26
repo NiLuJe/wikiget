@@ -231,11 +231,13 @@ class Downloader:
                 "s"[: self.warnings ^ 1],
             )
         if self.successes:
+            # Finally, compute transfer speeds over the whole run
+            seconds = self.elapsed_time.total_seconds()
             # Requests per second
-            total_rps = self.total_requests / self.elapsed_time.total_seconds()
+            total_rps = self.total_requests / seconds
 
             # Transfer speed
-            total_speed = self.total_bytes / self.elapsed_time.total_seconds()
+            total_speed = self.total_bytes / seconds
             total_transfer_speed = filesize.decimal(int(total_speed))
 
             # We don't see INFO on console w/o verbose output...
