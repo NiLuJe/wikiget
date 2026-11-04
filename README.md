@@ -37,7 +37,7 @@ containing multiple files to download, one filename or URL per line. Blank lines
 ignored. For large batches, the process can be sped up by downloading files in parallel.
 The number of parallel downloads can be set with `-j`. By default, wikiget will download three files at once,
 to comply with current (as of writing this) Wikimedia rate limits.
-Speaking of rate limits, you can tweak (`-r`) or disable (`--no-rps`) the defaults (which are tailored to unauthenticated clients),
+Speaking of rate limits, you can tweak (`-r`) or disable (`--no-rps` or `-r None`) the defaults (which are tailored to unauthenticated clients),
 which may be useful for authenticated clients (via an OAuth2 bearer token,
 passed via `-a`, or, better yet, an `auth_token` key-value pair in a local `config.toml` placed in the CWD).
 Ideally, this should be paired with actual bandwidth throttling, e.g., via `tc`/`tcconfig`, or `trickle`,
