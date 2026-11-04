@@ -12,8 +12,12 @@ set shell := ["bash", "-uc"]
 set script-interpreter := ["bash", "-ue"]
 
 # Project settings
-# We currently prefer Python 3.15
-PYTHON_VERSION := "3.15"
+# We currently prefer Python 3.15...
+# ...but the latest orjson wheels require glibc 2.39+, so fallback to 3.14 on older hosts...
+# NOTE: We add a clunky ".0" suffix, as semver_matches insists on version following the x.y.z format
+#       (but, strangely enough, is fine when the patch-level is ommited from the requirement string...).
+GLIBC_VERSION := shell("ldd --version | head -n 1 | awk '{print $NF}'") + ".0"
+PYTHON_VERSION := if semver_matches(GLIBC_VERSION, ">=2.39") == "true" { "3.15" } else { "3.14" }
 
 # Show available commands
 list:
