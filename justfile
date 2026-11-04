@@ -16,7 +16,7 @@ set script-interpreter := ["bash", "-ue"]
 # ...but the latest orjson wheels require glibc 2.39+, so fallback to 3.14 on older hosts...
 # NOTE: We add a clunky ".0" suffix, as semver_matches insists on version following the x.y.z format
 #       (but, strangely enough, is fine when the patch-level is ommited from the requirement string...).
-GLIBC_VERSION := shell("ldd --version | head -n 1 | awk '{print $NF}'") + ".0"
+GLIBC_VERSION := if os() == "linux" { shell("ldd --version | head -n 1 | awk '{print $NF}'") + ".0" } else { "9.99.99" }
 PYTHON_VERSION := if semver_matches(GLIBC_VERSION, ">=2.39") == "true" { "3.15" } else { "3.14" }
 
 # Show available commands
