@@ -27,10 +27,10 @@ from cyclopts import App, Parameter, config
 from cyclopts.types import Directory, StdioPath
 from rich.traceback import install as install_rich_traceback
 
+from . import __version__ as WIKIGET_VERSION
 from .config import Config
 from .dl import Downloader
 from .logging import configure_logging, console, error_console
-from .version import __version__ as WIKIGET_VERSION
 
 app = App(
     console=console,

@@ -38,3 +38,5 @@ Examples::
     wikiget -a -j3 batch.txt
 
 """
+
+from .version import __version__ as __version__

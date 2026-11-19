@@ -48,13 +48,13 @@ from rich.progress import (
     TransferSpeedColumn,
 )
 
+from . import __version__ as WIKIGET_VERSION
 from .config import Config
 from .exceptions import ParseError
 from .file import File
 from .logging import FileLogAdapter, console
 from .parse import batch_files, batch_size
 from .utils import get_elapsed_time, get_transfer_speed
-from .version import __version__ as WIKIGET_VERSION
 
 logger = logging.getLogger(__name__)
 
