@@ -391,7 +391,8 @@ class Downloader:
             logger.error("%s (@ line %i)", str(e), line_num)
             self.errors += 1
         except FileExistsError as e:
-            logger.warning(e)
+            # NOTE: Downgraded to debug, as it gets expensive for no good reason for delta runs...
+            logger.debug(e)
             self.warnings += 1
 
         return None
