@@ -45,7 +45,8 @@ def batch_size(batch_file: StdioPath) -> int:
 
     # NOTE: Because we consume batch_file as a generator,
     #       we don't really have a better way to do this than just consuming the iterator :/.
-    size = ilen(batch_file.open("rb"))
+    with batch_file.open("rb") as f:
+        size = ilen(f)
 
     # Rewind stdin for later batch_files calls
     if batch_file.is_stdio:
